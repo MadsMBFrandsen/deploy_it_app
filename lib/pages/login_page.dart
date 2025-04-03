@@ -8,7 +8,9 @@ class LoginPage extends StatelessWidget {
   final usernameController = TextEditingController();
   final passwordController = TextEditingController();
 
-  void signUserIn(){}
+  void signUserIn(BuildContext context){
+    Navigator.pushReplacementNamed(context, '/status');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,8 +79,12 @@ class LoginPage extends StatelessWidget {
             SizedBox(height: 25),
 
             MyButton(
-              onTap: signUserIn,
+              onTap: () => signUserIn(context),
               text: 'Sign In',
+              backgroundColor: Colors.blue,
+              textColor: Colors.white,
+              padd: EdgeInsets.all(25),
+              marg: EdgeInsets.symmetric(horizontal: 25),
             ),
 
 

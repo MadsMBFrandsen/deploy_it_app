@@ -9,7 +9,9 @@ class SignUpPage extends StatelessWidget {
   final usernameController = TextEditingController();
   final passwordController = TextEditingController();
 
-  void signUserUp(){}
+  void signUserUp(BuildContext context){
+    Navigator.pushReplacementNamed(context, '/login');
+  }
 
 
   @override
@@ -74,8 +76,12 @@ class SignUpPage extends StatelessWidget {
               SizedBox(height: 25),
 
               MyButton(
-                onTap: signUserUp,
+                onTap: () => signUserUp(context),
                 text: 'Create User',
+                backgroundColor: Colors.green,
+                textColor: Colors.white,
+                padd: EdgeInsets.all(25),
+                marg: EdgeInsets.symmetric(horizontal: 25),
               ),
 
               SizedBox(height: 25),
