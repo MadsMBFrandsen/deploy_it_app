@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
-class NavigationBar extends StatefulWidget {
+class NavigationBarCustom extends StatefulWidget {
   final Widget body;
 
-  const NavigationBar({super.key, required this.body});
+  const NavigationBarCustom({super.key, required this.body});
 
   @override
-  State<NavigationBar> createState() => _NavigationBarState();
+  State<NavigationBarCustom> createState() => _NavigationBarState();
 }
 
-class _NavigationBarState extends State<NavigationBar> {
+class _NavigationBarState extends State<NavigationBarCustom> {
   bool _isDrawerOpen = false;
   final double drawerWidth = 250;
 
@@ -49,7 +49,7 @@ class _NavigationBarState extends State<NavigationBar> {
                           onPressed: _toggleDrawer,
                         ),
                         Text(
-                          'My App',
+                          'Deploy-It',
                           style: TextStyle(color: Colors.white, fontSize: 20),
                         ),
                       ],
@@ -68,23 +68,75 @@ class _NavigationBarState extends State<NavigationBar> {
               left: _isDrawerOpen ? 0 : -drawerWidth,
               child: Container(
                 width: drawerWidth,
-                color: Colors.blueGrey[900],
+                color: Colors.white,
                 child: SafeArea(
                   child: Column(
                     children: [
                       ListTile(
-                        title: Text('Home', style: TextStyle(color: Colors.white)),
-                        onTap: () {},
+                        leading: Icon(Icons.bar_chart, color: Colors.indigo),
+                        title: Text('Status', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                        onTap: () {
+                          setState(() => _isDrawerOpen = false);
+                          Future.delayed(Duration(milliseconds: 300), () {
+                            Navigator.pushReplacementNamed(context, '/status');
+                          });
+                        },
                       ),
                       ListTile(
-                        title: Text('Settings', style: TextStyle(color: Colors.white)),
-                        onTap: () {},
+                        leading: Icon(Icons.storage, color: Colors.teal),
+                        title: Text('Deploy', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                        onTap: () {
+                           setState(() => _isDrawerOpen = false);
+                           Future.delayed(Duration(milliseconds: 300), () {
+                             Navigator.pushReplacementNamed(context, '/deploy');
+                           });
+                        },
                       ),
                       ListTile(
-                        title: Text('Logout', style: TextStyle(color: Colors.white)),
-                        onTap: () {},
+                        leading: Icon(Icons.account_circle, color: Colors.deepPurple),
+                        title: Text('User', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                        onTap: () {
+                          setState(() => _isDrawerOpen = false);
+                          Future.delayed(Duration(milliseconds: 300), () {
+                            Navigator.pushReplacementNamed(context, '/profile');
+                          });
+                        },
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 32.0),
+                        child: ListTile(
+                          leading: Icon(Icons.money, color: Colors.green),
+                          title: Text('Billing', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                          onTap: () {
+                            setState(() => _isDrawerOpen = false);
+                            Future.delayed(Duration(milliseconds: 300), () {
+                              Navigator.pushReplacementNamed(context, '/paid');
+                            });
+                          },
+                        ),
+                      ),
+                      ListTile(
+                        leading: Icon(Icons.admin_panel_settings, color: Colors.amber),
+                        title: Text('Admin', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                        onTap: () {
+                          setState(() => _isDrawerOpen = false);
+                          Future.delayed(Duration(milliseconds: 300), () {
+                            Navigator.pushReplacementNamed(context, '/admin');
+                          });
+                        },
+                      ),
+                      ListTile(
+                        leading: Icon(Icons.logout, color: Colors.redAccent),
+                        title: Text('Logout', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                        onTap: () {
+                          setState(() => _isDrawerOpen = false);
+                          Future.delayed(Duration(milliseconds: 300), () {
+                            Navigator.pushReplacementNamed(context, '/logout');
+                          });
+                        },
                       ),
                     ],
+
                   ),
                 ),
               ),
