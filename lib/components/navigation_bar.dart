@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class NavigationBarCustom extends StatefulWidget {
   final Widget body;
@@ -12,6 +13,24 @@ class NavigationBarCustom extends StatefulWidget {
 class _NavigationBarState extends State<NavigationBarCustom> {
   bool _isDrawerOpen = false;
   final double drawerWidth = 250;
+
+  bool isAdmin = false;
+  bool isAPayingUser = false;
+
+  @override
+  void initState() {
+    super.initState();
+    loadUserRole();
+  }
+
+  Future<void> loadUserRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    final role = prefs.getString('user_role') ?? 'user';
+    setState(() {
+      isAdmin = role.toLowerCase() == 'admin';
+      isAPayingUser = role.toLowerCase() == 'kunne';
+    });
+  }
 
   void _toggleDrawer() {
     setState(() {
@@ -60,7 +79,7 @@ class _NavigationBarState extends State<NavigationBarCustom> {
               ),
             ),
 
-            // Custom drawer
+            // Drawer
             AnimatedPositioned(
               duration: Duration(milliseconds: 300),
               top: 0,
@@ -72,77 +91,20 @@ class _NavigationBarState extends State<NavigationBarCustom> {
                 child: SafeArea(
                   child: Column(
                     children: [
-                      ListTile(
-                        leading: Icon(Icons.bar_chart, color: Colors.indigo),
-                        title: Text('Status', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                        onTap: () {
-                          setState(() => _isDrawerOpen = false);
-                          Future.delayed(Duration(milliseconds: 300), () {
-                            Navigator.pushReplacementNamed(context, '/status');
-                          });
-                        },
-                      ),
-                      ListTile(
-                        leading: Icon(Icons.storage, color: Colors.teal),
-                        title: Text('Deploy', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                        onTap: () {
-                           setState(() => _isDrawerOpen = false);
-                           Future.delayed(Duration(milliseconds: 300), () {
-                             Navigator.pushReplacementNamed(context, '/deploy');
-                           });
-                        },
-                      ),
-                      ListTile(
-                        leading: Icon(Icons.account_circle, color: Colors.deepPurple),
-                        title: Text('User', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                        onTap: () {
-                          setState(() => _isDrawerOpen = false);
-                          Future.delayed(Duration(milliseconds: 300), () {
-                            Navigator.pushReplacementNamed(context, '/profile');
-                          });
-                        },
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 32.0),
-                        child: ListTile(
-                          leading: Icon(Icons.money, color: Colors.green),
-                          title: Text('Billing', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                          onTap: () {
-                            setState(() => _isDrawerOpen = false);
-                            Future.delayed(Duration(milliseconds: 300), () {
-                              Navigator.pushReplacementNamed(context, '/paid');
-                            });
-                          },
-                        ),
-                      ),
-                      ListTile(
-                        leading: Icon(Icons.admin_panel_settings, color: Colors.amber),
-                        title: Text('Admin', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                        onTap: () {
-                          setState(() => _isDrawerOpen = false);
-                          Future.delayed(Duration(milliseconds: 300), () {
-                            Navigator.pushReplacementNamed(context, '/admin');
-                          });
-                        },
-                      ),
-                      ListTile(
-                        leading: Icon(Icons.logout, color: Colors.redAccent),
-                        title: Text('Logout', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                        onTap: () {
-                          setState(() => _isDrawerOpen = false);
-                          Future.delayed(Duration(milliseconds: 300), () {
-                            Navigator.pushReplacementNamed(context, '/logout');
-                          });
-                        },
-                      ),
+                      _drawerButton(Icons.bar_chart, 'Status', '/status'),
+                      if(isAPayingUser || isAdmin)
+                        _drawerButton(Icons.storage, 'Deploy', '/deploy'),
+                      _drawerButton(Icons.account_circle, 'User', '/profile'),
+                      _drawerButton(Icons.money, 'Billing', '/paid'),
+                      if (isAdmin)
+                        _drawerButton(Icons.admin_panel_settings, 'Admin', '/admin'),
+                      _drawerButton(Icons.logout, 'Logout', '/login', isLogout: true),
                     ],
-
                   ),
                 ),
               ),
             ),
 
-            // Tap to close overlay
             if (_isDrawerOpen)
               Positioned.fill(
                 left: drawerWidth,
@@ -154,6 +116,22 @@ class _NavigationBarState extends State<NavigationBarCustom> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _drawerButton(IconData icon, String label, String route, {bool isLogout = false}) {
+    return ListTile(
+      leading: Icon(icon, color: isLogout ? Colors.redAccent : Colors.indigo),
+      title: Text(
+        label,
+        style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+      ),
+      onTap: () {
+        setState(() => _isDrawerOpen = false);
+        Future.delayed(Duration(milliseconds: 300), () {
+          Navigator.pushReplacementNamed(context, route);
+        });
+      },
     );
   }
 }
