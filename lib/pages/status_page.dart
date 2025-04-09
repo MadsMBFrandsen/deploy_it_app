@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:deploy_it_app/components/navigation_bar.dart';
 import 'package:deploy_it_app/components/my_button.dart';
+import 'package:deploy_it_app/components/api_calls_temp.dart';
 import 'package:fl_chart/fl_chart.dart';
-
 import '../components/circle_usage.dart';
-
 
 class StatusPage extends StatefulWidget {
   const StatusPage({super.key});
@@ -14,30 +13,56 @@ class StatusPage extends StatefulWidget {
 }
 
 class _StatusPageState extends State<StatusPage> {
-
   String selectedValue = 'Option 1';
 
+  double cpu = 0.0;
+  double ram = 0.0;
+  double storage = 0.0;
+  List<double> chartData = [];
+  List<String> logs = [];
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchStatus();
+  }
+
+  Future<void> fetchStatus() async {
+    try {
+      final data = await ApiService.getStatusData();
+      setState(() {
+        cpu = data['cpuUsage'];
+        ram = data['ramUsage'];
+        storage = data['storageUsage'];
+        chartData = List<double>.from(data['chartData']);
+        logs = List<String>.from(data['logs']);
+        loading = false;
+      });
+    } catch (e) {
+      setState(() => loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to fetch status data")),
+      );
+    }
+  }
+
   Future<void> edit_VM() async {
-    // edit VM logic here
+    // navigation to deployment
   }
 
   @override
   Widget build(BuildContext context) {
     return NavigationBarCustom(
-      body: Center(
-        child: SingleChildScrollView (
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : Center(
+        child: SingleChildScrollView(
           child: Column(
             children: [
-          
               const SizedBox(height: 50),
-          
-              const Text(
-                'Status',
-                style: TextStyle(fontSize: 24),
-              ),
-          
+              const Text('Status', style: TextStyle(fontSize: 24)),
               const SizedBox(height: 25),
-          
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -47,13 +72,10 @@ class _StatusPageState extends State<StatusPage> {
                       text: 'Edit VM',
                       backgroundColor: Colors.blue,
                       textColor: Colors.white,
-                      padd: EdgeInsets.all(5),
-                      marg: EdgeInsets.symmetric(horizontal: 10),
+                      padd: const EdgeInsets.all(5),
+                      marg: const EdgeInsets.symmetric(horizontal: 10),
                     ),
                   ),
-          
-                  // const SizedBox(width: 10),
-          
                   DropdownButton<String>(
                     value: selectedValue,
                     onChanged: (String? newValue) {
@@ -71,22 +93,16 @@ class _StatusPageState extends State<StatusPage> {
                   ),
                 ],
               ),
-          
-              // row with cpu, ram, Storage monitor
               const SizedBox(height: 30),
-
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: const [
-                  CircleUsage(label: 'CPU', usage: 0.75),
-                  CircleUsage(label: 'RAM', usage: 0.60),
-                  CircleUsage(label: 'Storage', usage: 0.85),
+                children: [
+                  CircleUsage(label: 'CPU', usage: cpu),
+                  CircleUsage(label: 'RAM', usage: ram),
+                  CircleUsage(label: 'Storage', usage: storage),
                 ],
               ),
-          
               const SizedBox(height: 30),
-          
-              //last 12 - 24 H diagram over use of resources
               Container(
                 height: 200,
                 width: double.infinity,
@@ -100,15 +116,10 @@ class _StatusPageState extends State<StatusPage> {
                   LineChartData(
                     lineBarsData: [
                       LineChartBarData(
-                        spots: [
-                          FlSpot(0, 0.3),
-                          FlSpot(4, 0.5),
-                          FlSpot(8, 0.7),
-                          FlSpot(12, 0.6),
-                          FlSpot(16, 0.85),
-                          FlSpot(20, 0.65),
-                          FlSpot(24, 0.75),
-                        ],
+                        spots: List.generate(
+                          chartData.length,
+                              (index) => FlSpot(index * 4, chartData[index]),
+                        ),
                         isCurved: true,
                         color: Colors.blue,
                         barWidth: 3,
@@ -139,23 +150,21 @@ class _StatusPageState extends State<StatusPage> {
                   ),
                 ),
               ),
-          
-          
-              // Last 5 Errors / Logs
+              const SizedBox(height: 20),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: List.generate(5, (index) {
+                  children: logs.map((log) {
                     return ListTile(
                       leading: const Icon(Icons.warning, color: Colors.red),
-                      title: Text('Error ${index + 1}: Something happened'),
-                      subtitle: Text('Timestamp: ${DateTime.now().subtract(Duration(minutes: index * 10))}'),
+                      title: Text(log),
+                      subtitle: Text('Timestamp: ${DateTime.now()}'),
                     );
-                  }),
+                  }).toList(),
                 ),
               ),
-          
+              const SizedBox(height: 30),
             ],
           ),
         ),
