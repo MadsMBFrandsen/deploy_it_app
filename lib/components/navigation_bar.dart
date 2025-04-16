@@ -1,5 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:deploy_it_app/components/theme_controller.dart';
+
+import '../pages/admin_page.dart';
+import '../pages/deployment_page.dart';
+import '../pages/login_page.dart';
+import '../pages/pay_status.dart';
+import '../pages/profile_page.dart';
+import '../pages/status_page.dart';
+
+
 
 class NavigationBarCustom extends StatefulWidget {
   final Widget body;
@@ -17,6 +27,10 @@ class _NavigationBarState extends State<NavigationBarCustom> {
   bool isAdmin = false;
   bool isAPayingUser = false;
 
+  String userName = '';
+  String userEmail = '';
+ // String? userAvatar;
+
   @override
   void initState() {
     super.initState();
@@ -25,10 +39,14 @@ class _NavigationBarState extends State<NavigationBarCustom> {
 
   Future<void> loadUserRole() async {
     final prefs = await SharedPreferences.getInstance();
-    final role = prefs.getString('user_role') ?? 'user';
+    final role = (prefs.getString('user_role') ?? 'user').toLowerCase();
+    userName = prefs.getString('user_name') ?? 'Guest';
+    userEmail = prefs.getString('user_email') ?? 'guest@example.com';
+    //userAvatar = prefs.getString('user_avatar_url');
+
     setState(() {
-      isAdmin = role.toLowerCase() == 'admin';
-      isAPayingUser = role.toLowerCase() == 'kunne';
+      isAdmin = role == 'admin';
+      isAPayingUser = role == 'kunne';
     });
   }
 
@@ -46,74 +64,137 @@ class _NavigationBarState extends State<NavigationBarCustom> {
     }
   }
 
+  void _navigateWithTransition(String route) {
+    Navigator.of(context).pushReplacement(PageRouteBuilder(
+      transitionDuration: Duration(milliseconds: 300),
+      pageBuilder: (_, __, ___) => getPageForRoute(route),
+      transitionsBuilder: (_, animation, __, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: Offset(1.0, 0.0),
+            end: Offset.zero,
+          ).animate(animation),
+          child: child,
+        );
+      },
+    ));
+  }
+
+  Widget getPageForRoute(String route) {
+    switch (route) {
+      case '/status':
+        return StatusPage();
+      case '/deploy':
+        return DeploymentPage();
+      case '/profile':
+        return ProfilePage();
+      case '/paid':
+        return PayStatus();
+      case '/admin':
+        return AdminPage();
+      case '/login':
+      default:
+        return LoginPage();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onHorizontalDragUpdate: _handleSwipe,
-      child: Scaffold(
-        body: Stack(
-          children: [
-            // Main content with custom AppBar
-            SafeArea(
-              child: Column(
-                children: [
-                  // Custom AppBar
-                  Container(
-                    color: Colors.blueGrey[800],
-                    height: 60,
-                    child: Row(
+    return PopScope(
+      canPop: !_isDrawerOpen,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _isDrawerOpen) {
+          setState(() => _isDrawerOpen = false);
+        }
+      },
+      child: GestureDetector(
+        onHorizontalDragUpdate: _handleSwipe,
+        child: Scaffold(
+          body: Stack(
+            children: [
+              SafeArea(
+                child: Column(
+                  children: [
+                    Container(
+                      color: Colors.blueGrey[800],
+                      height: 60,
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.menu, color: Colors.white),
+                            tooltip: "Open drawer",
+                            onPressed: _toggleDrawer,
+                          ),
+                          Expanded(
+                            child: Text(
+                              'Deploy-It',
+                              style: TextStyle(color: Colors.white, fontSize: 20),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(child: widget.body),
+                  ],
+                ),
+              ),
+
+              // Drawer
+              AnimatedPositioned(
+                duration: Duration(milliseconds: 300),
+                top: 0,
+                bottom: 0,
+                left: _isDrawerOpen ? 0 : -drawerWidth,
+                child: Container(
+                  width: drawerWidth,
+                  color: Colors.white,
+                  child: SafeArea(
+                    child: Column(
                       children: [
-                        IconButton(
-                          icon: Icon(Icons.menu, color: Colors.white),
-                          onPressed: _toggleDrawer,
+                        UserAccountsDrawerHeader(
+                          accountName: Text(userName),
+                          accountEmail: Text(userEmail),
+                          currentAccountPicture: CircleAvatar(
+                            backgroundColor: Colors.indigo,
+                            child: Icon(Icons.person, color: Colors.white, size: 30),
+                          ),
+                          decoration: BoxDecoration(color: Colors.blueGrey[800]),
                         ),
-                        Text(
-                          'Deploy-It',
-                          style: TextStyle(color: Colors.white, fontSize: 20),
+                        _drawerButton(Icons.bar_chart, 'Status', '/status'),
+                        if (isAPayingUser || isAdmin)
+                          _drawerButton(Icons.storage, 'Deploy', '/deploy'),
+                        _drawerButton(Icons.account_circle, 'User', '/profile'),
+                        _drawerButton(Icons.money, 'Billing', '/paid'),
+                        if (isAdmin)
+                          _drawerButton(Icons.admin_panel_settings, 'Admin', '/admin'),
+                        Divider(),
+                        SwitchListTile(
+                          value: themeNotifier.value == ThemeMode.dark,
+                          onChanged: (val) {
+                            themeNotifier.value =
+                            val ? ThemeMode.dark : ThemeMode.light;
+                          },
+                          title: Text('Dark Mode'),
+                          secondary: Icon(Icons.brightness_6),
                         ),
+                        Divider(),
+                        _drawerButton(Icons.logout, 'Logout', '/login', isLogout: true),
                       ],
                     ),
                   ),
-                  Expanded(child: widget.body),
-                ],
+                ),
               ),
-            ),
 
-            // Drawer
-            AnimatedPositioned(
-              duration: Duration(milliseconds: 300),
-              top: 0,
-              bottom: 0,
-              left: _isDrawerOpen ? 0 : -drawerWidth,
-              child: Container(
-                width: drawerWidth,
-                color: Colors.white,
-                child: SafeArea(
-                  child: Column(
-                    children: [
-                      _drawerButton(Icons.bar_chart, 'Status', '/status'),
-                      if(isAPayingUser || isAdmin)
-                        _drawerButton(Icons.storage, 'Deploy', '/deploy'),
-                      _drawerButton(Icons.account_circle, 'User', '/profile'),
-                      _drawerButton(Icons.money, 'Billing', '/paid'),
-                      if (isAdmin)
-                        _drawerButton(Icons.admin_panel_settings, 'Admin', '/admin'),
-                      _drawerButton(Icons.logout, 'Logout', '/login', isLogout: true),
-                    ],
+              if (_isDrawerOpen)
+                Positioned.fill(
+                  left: drawerWidth,
+                  child: GestureDetector(
+                    onTap: _toggleDrawer,
+                    child: Container(color: Colors.black.withAlpha((0.3 * 255).round()))
                   ),
                 ),
-              ),
-            ),
-
-            if (_isDrawerOpen)
-              Positioned.fill(
-                left: drawerWidth,
-                child: GestureDetector(
-                  onTap: _toggleDrawer,
-                  child: Container(color: Colors.black.withOpacity(0.3)),
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -128,8 +209,50 @@ class _NavigationBarState extends State<NavigationBarCustom> {
       ),
       onTap: () {
         setState(() => _isDrawerOpen = false);
-        Future.delayed(Duration(milliseconds: 300), () {
-          Navigator.pushReplacementNamed(context, route);
+        Future.delayed(Duration(milliseconds: 300), () async {
+          if (isLogout) {
+            final confirm = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: Text('Confirm Logout'),
+                content: Text('Are you sure you want to log out?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: Text('Logout'),
+                  ),
+                ],
+              ),
+            );
+
+            if (confirm == true) {
+              // Show loading dialog
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.clear();
+
+              // Give a moment for UX smoothness
+              await Future.delayed(Duration(milliseconds: 500));
+
+              // Close loading dialog
+              Navigator.of(context).pop();
+
+              Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
+            }
+          } else {
+            _navigateWithTransition(route);
+          }
         });
       },
     );
