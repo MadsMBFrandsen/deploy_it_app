@@ -1,7 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-
 import '../components/navigation_bar.dart';
-
+import '../components/api_calls_temp.dart';
 
 class DeploymentPage extends StatelessWidget {
   const DeploymentPage({super.key});
@@ -9,26 +9,28 @@ class DeploymentPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return NavigationBarCustom(
-      body: Center(
-        child: DefaultTabController(
-          length: 3, // Number of tabs
-          child: Scaffold(
-            appBar: AppBar(
-              title: Text('Deployment'),
-              bottom: TabBar(
-                tabs: [
-                  Tab(text: 'Create'),
-                  Tab(text: 'Update'),
-                  Tab(text: 'Delete'),
+      body: SafeArea(
+        child: Center(
+          child: DefaultTabController(
+            length: 3, // Number of tabs
+            child: Scaffold(
+              appBar: AppBar(
+                title: Text('Deployment'),
+                bottom: TabBar(
+                  tabs: [
+                    Tab(text: 'Create'),
+                    Tab(text: 'Update'),
+                    Tab(text: 'Delete'),
+                  ],
+                ),
+              ),
+              body: TabBarView(
+                children: [
+                  CreateTab(),
+                  UpdateTab(),
+                  DeleteTab(),
                 ],
               ),
-            ),
-            body: TabBarView(
-              children: [
-                CreateTab(),
-                UpdateTab(),
-                DeleteTab(),
-              ],
             ),
           ),
         ),
@@ -38,6 +40,7 @@ class DeploymentPage extends StatelessWidget {
 }
 
 // Widgets for each tab content
+
 class CreateTab extends StatefulWidget {
   @override
   _CreateTabState createState() => _CreateTabState();
@@ -46,148 +49,102 @@ class CreateTab extends StatefulWidget {
 class _CreateTabState extends State<CreateTab> {
   final _formKey = GlobalKey<FormState>();
   final nameController = TextEditingController();
-  final descriptionController = TextEditingController();
+  final descController = TextEditingController();
 
-  String? selectedConfigId;
-  Map<String, int>? selectedHardware;
+  List<Map<String, dynamic>> vmConfigs = [];
+  Map<String, dynamic>? selectedConfig;
+  List<String> packages = [];
+  bool loading = true;
 
-  final Map<String, dynamic> vmConfigurations = {
-    "9000": {
-      "name": "default vm config",
-      "desc": "A default config",
-      "hardware": {"memory": 2, "processers": 1, "cores": 2, "disksize": 30}
-    },
-    "9100": {
-      "name": "Basic VPS",
-      "desc": "A starter VPS configuration",
-      "hardware": {"memory": 4, "processers": 1, "cores": 2, "disksize": 50}
-    },
-    "9200": {
-      "name": "Standard VPS",
-      "desc": "A mid-tier VPS configuration",
-      "hardware": {"memory": 8, "processers": 1, "cores": 4, "disksize": 100}
-    },
-    "9300": {
-      "name": "Premium VPS",
-      "desc": "A high-performance VPS configuration",
-      "hardware": {"memory": 16, "processers": 1, "cores": 8, "disksize": 250}
-    },
-  };
-
-  Map<String, bool> packages = {
-    'Node.js': false,
-    'PHP': false,
-    'Python': false,
-    'Docker': false,
-  };
-
-  void applyConfiguration(String configId) {
-    final config = vmConfigurations[configId];
-    if (config != null) {
-      final hw = config['hardware'];
-
-      setState(() {
-        nameController.text = config['name'] ?? '';
-        descriptionController.text = config['desc'] ?? '';
-        selectedHardware = {
-          'cores': hw['cores'],
-          'ram': hw['memory'],
-          'storage': hw['disksize']
-        };
-      });
-    }
+  @override
+  void initState() {
+    super.initState();
+    loadVMConfigs();
   }
 
-  Widget buildHardwareInfo() {
-    if (selectedHardware == null) return SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("Hardware Info", style: TextStyle(fontWeight: FontWeight.bold)),
-        SizedBox(height: 8),
-        Text("Cores: ${selectedHardware!['cores']}"),
-        Text("RAM: ${selectedHardware!['ram']} GB"),
-        Text("Storage: ${selectedHardware!['storage']} GB"),
-        SizedBox(height: 16),
-      ],
-    );
+  void loadVMConfigs() async {
+    final configs = await ApiService.fetchAllVMConfigs();
+    setState(() {
+      vmConfigs = configs;
+      selectedConfig = configs.isNotEmpty ? configs.first : null;
+      loading = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    if (loading) return Center(child: CircularProgressIndicator());
+
     return Padding(
       padding: EdgeInsets.all(16),
       child: Form(
         key: _formKey,
         child: ListView(
           children: [
-            DropdownButtonFormField<String>(
-              value: vmConfigurations.containsKey(selectedConfigId)
-                  ? selectedConfigId
-                  : null,
-              decoration: InputDecoration(labelText: 'Select a VM Configuration'),
-              items: vmConfigurations.entries.map((entry) {
-                return DropdownMenuItem(
-                  value: entry.key,
-                  child: Text(entry.value['name']),
-                );
-              }).toList(),
-              onChanged: (value) {
-                selectedConfigId = value;
-                applyConfiguration(value!);
-              },
-            ),
             TextFormField(
               controller: nameController,
-              decoration: InputDecoration(labelText: 'VM Name'),
-              readOnly: true,
+              decoration: InputDecoration(labelText: "VM Name"),
+              validator: (val) => val!.isEmpty ? "Enter name" : null,
             ),
             TextFormField(
-              controller: descriptionController,
-              decoration: InputDecoration(labelText: 'VM Description'),
-              readOnly: true,
+              controller: descController,
+              decoration: InputDecoration(labelText: "Description"),
+              validator: (val) => val!.isEmpty ? "Enter description" : null,
             ),
             SizedBox(height: 16),
-            buildHardwareInfo(),
-            Text('Select Packages:', style: TextStyle(fontWeight: FontWeight.bold)),
-            ...packages.keys.map((pkg) {
+            DropdownButtonFormField<String>(
+              value: selectedConfig?['id'],
+              decoration: InputDecoration(labelText: "Choose Configuration"),
+              items: vmConfigs.map((config) {
+                return DropdownMenuItem<String>(
+                  value: config['id'],
+                  child: Text(config['name']),
+                );
+              }).toList(),
+              onChanged: (id) {
+                final config = vmConfigs.firstWhere((c) => c['id'] == id);
+                setState(() => selectedConfig = config);
+              },
+            ),
+            SizedBox(height: 16),
+            if (selectedConfig != null) ...[
+              Text("Memory: ${selectedConfig!['hardware']['memory']} GB"),
+              Text("Cores: ${selectedConfig!['hardware']['cores']}"),
+              Text("Disk: ${selectedConfig!['hardware']['disksize']} GB"),
+            ],
+            SizedBox(height: 16),
+            Text("Select Packages"),
+            ...["Node.js", "PHP", "Python"].map((pkg) {
               return CheckboxListTile(
                 title: Text(pkg),
-                value: packages[pkg],
-                onChanged: (bool? value) {
+                value: packages.contains(pkg),
+                onChanged: (val) {
                   setState(() {
-                    packages[pkg] = value ?? false;
+                    if (val == true) {
+                      packages.add(pkg);
+                    } else {
+                      packages.remove(pkg);
+                    }
                   });
                 },
               );
             }).toList(),
-            SizedBox(height: 20),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green, // Button background
-                foregroundColor: Colors.black, // Text color
-              ),
-              onPressed: () {
-                if (_formKey.currentState!.validate() && selectedHardware != null) {
-                  final selectedPackages = packages.entries
-                      .where((entry) => entry.value)
-                      .map((entry) => entry.key)
-                      .toList();
-
-                  print('Creating VM:');
-                  print('Name: ${nameController.text}');
-                  print('Description: ${descriptionController.text}');
-                  print('Cores: ${selectedHardware!['cores']}');
-                  print('RAM: ${selectedHardware!['ram']} GB');
-                  print('Storage: ${selectedHardware!['storage']} GB');
-                  print('Packages: $selectedPackages');
-
+              onPressed: () async {
+                if (_formKey.currentState!.validate()) {
+                  final vmData = {
+                    "name": nameController.text,
+                    "desc": descController.text,
+                    "hardware": selectedConfig!['hardware'],
+                    "packages": packages
+                  };
+                  final res = await ApiService.createVM(vmData);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('VM Created Successfully')),
+                    SnackBar(content: Text(jsonDecode(res.body)['message'])),
                   );
                 }
               },
-              child: Text('Create VM',style: TextStyle(fontSize: 20,color: Colors.white)),
+              child: Text("Create VM"),
             ),
           ],
         ),
@@ -195,7 +152,6 @@ class _CreateTabState extends State<CreateTab> {
     );
   }
 }
-
 
 
 class UpdateTab extends StatefulWidget {
@@ -206,62 +162,46 @@ class UpdateTab extends StatefulWidget {
 class _UpdateTabState extends State<UpdateTab> {
   final _formKey = GlobalKey<FormState>();
   final nameController = TextEditingController();
-  final descriptionController = TextEditingController();
+  final descController = TextEditingController();
 
-  Map<String, dynamic>? config;
-  bool isLoading = true;
+  List<Map<String, dynamic>> configs = [];
+  Map<String, dynamic>? selectedConfig;
+  bool loading = true;
 
   @override
   void initState() {
     super.initState();
-    fetchConfigFromApi();
+    loadConfigs();
   }
 
-  // Simulated API fetch
-  void fetchConfigFromApi() async {
-    await Future.delayed(Duration(seconds: 1)); // fake delay
-    // fake data
-    final fakeApiResponse = {
-      "id": "9200",
-      "name": "Standard VPS",
-      "desc": "A mid-tier VPS configuration",
-      "hardware": {
-        "memory": 8,
-        "cores": 4,
-        "disksize": 100,
-        "processers": 1
-      }
-    };
+  void loadConfigs() async {
+    final newConfigs = await ApiService.vmconfig();
 
     setState(() {
-      config = fakeApiResponse;
-      nameController.text = config!['name'];
-      descriptionController.text = config!['desc'];
-      isLoading = false;
+      configs = newConfigs;
+      loading = false;
+
+      if (selectedConfig != null) {
+        final matched = newConfigs.where((c) => c['id'] == selectedConfig!['id']).toList();
+        selectedConfig = matched.isNotEmpty ? matched.first : null;
+      }
     });
   }
 
-  Widget buildHardwareInfo() {
-    if (config == null) return SizedBox.shrink();
-    final hw = config!['hardware'];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("Hardware Info", style: TextStyle(fontWeight: FontWeight.bold)),
-        SizedBox(height: 8),
-        Text("Cores: ${hw['cores']}"),
-        Text("RAM: ${hw['memory']} GB"),
-        Text("Storage: ${hw['disksize']} GB"),
-        SizedBox(height: 16),
-      ],
-    );
+
+
+  void onSelect(String? id) {
+    final config = configs.firstWhere((c) => c['id'] == id);
+    setState(() {
+      selectedConfig = config;
+      nameController.text = config['name'];
+      descController.text = config['desc'];
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return Center(child: CircularProgressIndicator());
-    }
+    if (loading) return Center(child: CircularProgressIndicator());
 
     return Padding(
       padding: EdgeInsets.all(16),
@@ -269,41 +209,57 @@ class _UpdateTabState extends State<UpdateTab> {
         key: _formKey,
         child: ListView(
           children: [
-            TextFormField(
-              controller: nameController,
-              decoration: InputDecoration(labelText: 'VM Name'),
-              validator: (value) => value!.isEmpty ? 'Enter VM Name' : null,
+            DropdownButtonFormField<String>(
+              value: selectedConfig?['id'],
+              decoration: InputDecoration(labelText: "Select VM to Update"),
+              items: configs.map<DropdownMenuItem<String>>((c) {
+                return DropdownMenuItem<String>(
+                  value: c['id'] as String,
+                  child: Text(c['name']),
+                );
+              }).toList(),
+              onChanged: onSelect,
             ),
-            TextFormField(
-              controller: descriptionController,
-              decoration: InputDecoration(labelText: 'VM Description'),
-              validator: (value) => value!.isEmpty ? 'Enter Description' : null,
-            ),
-            SizedBox(height: 16),
-            buildHardwareInfo(),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue, // Button background
-                foregroundColor: Colors.black, // Text color
+            if (selectedConfig != null) ...[
+              TextFormField(
+                controller: nameController,
+                decoration: InputDecoration(labelText: "VM Name"),
+                validator: (val) => val!.isEmpty ? "Enter name" : null,
               ),
-              onPressed: () {
-                if (_formKey.currentState!.validate()) {
-                  final updatedData = {
-                    "name": nameController.text,
-                    "desc": descriptionController.text,
-                    "hardware": config!['hardware'],
-                  };
+              TextFormField(
+                controller: descController,
+                decoration: InputDecoration(labelText: "Description"),
+                validator: (val) => val!.isEmpty ? "Enter description" : null,
+              ),
+              SizedBox(height: 16),
+              Text("Cores: ${selectedConfig!['hardware']['cores']}"),
+              Text("RAM: ${selectedConfig!['hardware']['memory']} GB"),
+              Text("Storage: ${selectedConfig!['hardware']['disksize']} GB"),
+              SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () async {
+                  if (_formKey.currentState!.validate()) {
+                    final res = await ApiService.updateVM(selectedConfig!['id'], {
+                      "name": nameController.text,
+                      "desc": descController.text,
+                      "hardware": selectedConfig!['hardware'],
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(jsonDecode(res.body)['message'])),
+                    );
 
-                  print("Updated VM Config:");
-                  print(updatedData);
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('VM Updated Successfully')),
-                  );
-                }
-              },
-              child: Text('Save Changes', style: TextStyle(fontSize: 20,color: Colors.white),),
-            ),
+                    // Refresh the VM list and selection
+                    loadConfigs(); // Refresh list
+                    setState(() {
+                      selectedConfig = null;
+                      nameController.clear();
+                      descController.clear();
+                    });
+                  }
+                },
+                child: Text("Update VM"),
+              ),
+            ]
           ],
         ),
       ),
@@ -312,121 +268,102 @@ class _UpdateTabState extends State<UpdateTab> {
 }
 
 
-
 class DeleteTab extends StatefulWidget {
   @override
   _DeleteTabState createState() => _DeleteTabState();
 }
 
 class _DeleteTabState extends State<DeleteTab> {
-  Map<String, dynamic>? config;
-  bool isLoading = true;
+  List<Map<String, dynamic>> configs = [];
+  Map<String, dynamic>? selectedConfig;
+  bool loading = true;
 
   @override
   void initState() {
     super.initState();
-    fetchConfigFromApi();
+    loadConfigs();
   }
 
-  void fetchConfigFromApi() async {
-    await Future.delayed(Duration(seconds: 1)); // Simulate API delay
-    final fakeApiResponse = {
-      "id": "9300",
-      "name": "Premium VPS",
-      "desc": "A high-performance VPS configuration",
-      "hardware": {
-        "memory": 16,
-        "cores": 8,
-        "disksize": 250,
-        "processers": 1
-      }
-    };
+  void loadConfigs() async {
+    final newConfigs = await ApiService.vmconfig();
 
     setState(() {
-      config = fakeApiResponse;
-      isLoading = false;
+      configs = newConfigs;
+      loading = false;
+
+      if (selectedConfig != null) {
+        final matched = newConfigs.where((c) => c['id'] == selectedConfig!['id']).toList();
+        selectedConfig = matched.isNotEmpty ? matched.first : null;
+      }
     });
   }
 
+
   void confirmDelete() async {
-    final confirmed = await showDialog<bool>(
+    final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Confirm Delete"),
-        content: Text("Are you sure you want to delete this VM configuration?"),
+      builder: (ctx) => AlertDialog(
+        title: Text("Delete VM"),
+        content: Text("Are you sure you want to delete this VM?"),
         actions: [
-          TextButton(
-            child: Text("Cancel"),
-            onPressed: () => Navigator.pop(context, false),
-          ),
-          ElevatedButton(
-            child: Text("Delete"),
-            onPressed: () => Navigator.pop(context, true),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text("Cancel")),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: Text("Delete")),
         ],
       ),
     );
 
-    if (confirmed == true) {
-      print("Deleted VM Config ID: ${config!['id']}");
+    if (confirm == true) {
+      final res = await ApiService.deleteVM(selectedConfig!['id']);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("VM Configuration Deleted")),
+        SnackBar(content: Text(jsonDecode(res.body)['message'])),
       );
-      // ⏳ Wait for 1.5 seconds before navigating to Create tab
-      await Future.delayed(Duration(seconds: 1, milliseconds: 500));
-      DefaultTabController.of(context).animateTo(0);
 
-    } else {
-      print("Delete cancelled.");
+      // Clear selection and reload list
+      setState(() {
+        selectedConfig = null;
+        loading = true;
+      });
+      loadConfigs(); // Reload updated list
     }
-  }
-
-  Widget buildReadonlyField(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label,
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        SizedBox(height: 4),
-        Text(value),
-        SizedBox(height: 12),
-      ],
-    );
-  }
-
-  Widget buildHardwareInfo() {
-    if (config == null) return SizedBox.shrink();
-    final hw = config!['hardware'];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("Hardware Info", style: TextStyle(fontWeight: FontWeight.bold)),
-        SizedBox(height: 8),
-        Text("Cores: ${hw['cores']}"),
-        Text("RAM: ${hw['memory']} GB"),
-        Text("Storage: ${hw['disksize']} GB"),
-        SizedBox(height: 16),
-      ],
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) return Center(child: CircularProgressIndicator());
+    if (loading) return Center(child: CircularProgressIndicator());
 
     return Padding(
       padding: EdgeInsets.all(16),
       child: ListView(
         children: [
-          buildReadonlyField("VM Name", config!['name']),
-          buildReadonlyField("Description", config!['desc']),
-          buildHardwareInfo(),
-          SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: confirmDelete,
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text("Delete VM",style: TextStyle(fontSize: 20,color: Colors.white), ),
-          )
+          DropdownButtonFormField<String>(
+            value: selectedConfig?['id'],
+            decoration: InputDecoration(labelText: "Select VM to Delete"),
+            items: configs.map<DropdownMenuItem<String>>((c) {
+              return DropdownMenuItem<String>(
+                value: c['id'] as String,
+                child: Text(c['name']),
+              );
+            }).toList(),
+            onChanged: (id) {
+              setState(() {
+                selectedConfig = configs.firstWhere((c) => c['id'] == id);
+              });
+            },
+          ),
+          if (selectedConfig != null) ...[
+            SizedBox(height: 12),
+            Text("Name: ${selectedConfig!['name']}"),
+            Text("Desc: ${selectedConfig!['desc']}"),
+            Text("Cores: ${selectedConfig!['hardware']['cores']}"),
+            Text("RAM: ${selectedConfig!['hardware']['memory']} GB"),
+            Text("Storage: ${selectedConfig!['hardware']['disksize']} GB"),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: confirmDelete,
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: Text("Delete VM"),
+            ),
+          ]
         ],
       ),
     );
