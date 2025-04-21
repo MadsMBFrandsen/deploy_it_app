@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:deploy_it_app/components/navigation_bar.dart';
-import 'package:deploy_it_app/components/api_calls_temp.dart';
+import 'package:deploy_it_app/components/api_calls.dart';
 
 class PayStatus extends StatefulWidget {
   const PayStatus({super.key});
@@ -24,12 +24,12 @@ class _PayStatusState extends State<PayStatus> {
 
   void fetchPaymentStatus() async {
     try {
-      final data = await ApiService.getPaymentStatus();
+      final response = await ApiService.getPaymentStatus();
+      print('Response received: $response'); // For debugging
+      final data = response['data'];
+
       setState(() {
-        hasPaid = data['hasPaid'];
-        nextPayment = data['nextPayment'];
-        daysRemaining = data['daysRemaining'];
-        isOverdue = data['isOverdue'];
+        hasPaid = data['is_paid'] ?? false;
         loading = false;
       });
     } catch (e) {
@@ -37,8 +37,11 @@ class _PayStatusState extends State<PayStatus> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Failed to fetch payment status")),
       );
+      print('Error: $e'); // So you see what went wrong
     }
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -56,53 +59,28 @@ class _PayStatusState extends State<PayStatus> {
                   const Padding(
                     padding: EdgeInsets.only(right: 16.0),
                     child: Text(
-                      'Pay Status',
+                      'Payment Status',
                       style: TextStyle(fontSize: 24),
                     ),
                   ),
                   Icon(
-                    hasPaid
-                        ? Icons.check_circle
-                        : isOverdue
-                        ? Icons.error
-                        : Icons.warning_amber,
-                    color: hasPaid
-                        ? Colors.green
-                        : isOverdue
-                        ? Colors.red
-                        : Colors.orange,
+                    hasPaid ? Icons.check_circle : Icons.error,
+                    color: hasPaid ? Colors.green : Colors.red,
+                    size: 30,
                   )
                 ],
               ),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Next Payment:',
-                    style: TextStyle(fontSize: 22),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: Text(
-                      nextPayment,
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ),
-                  Text(
-                    isOverdue
-                        ? '[Overdue by ${-daysRemaining} days]'
-                        : '[$daysRemaining Days]',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isOverdue ? Colors.red : Colors.black,
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 20),
+              Text(
+                hasPaid
+                    ? "Your payment is up-to-date."
+                    : "You have not paid yet.",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  color: hasPaid ? Colors.green : Colors.red,
+                ),
               ),
-
-              const SizedBox(height: 10),
             ],
           ),
         ),
