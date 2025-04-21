@@ -15,6 +15,7 @@ class _EditUserPageState extends State<EditUserPage> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController nameController;
   late TextEditingController emailController;
+  late TextEditingController passwordController;
   bool saving = false;
 
   @override
@@ -22,6 +23,7 @@ class _EditUserPageState extends State<EditUserPage> {
     super.initState();
     nameController = TextEditingController(text: widget.user['name']);
     emailController = TextEditingController(text: widget.user['email']);
+    passwordController = TextEditingController(); // blank by default
   }
 
   void saveChanges() async {
@@ -32,8 +34,11 @@ class _EditUserPageState extends State<EditUserPage> {
     final updatedUser = {
       "name": nameController.text,
       "email": emailController.text,
-      // Add other fields if needed
     };
+
+    if (passwordController.text.isNotEmpty) {
+      updatedUser["password"] = passwordController.text;
+    }
 
     try {
       final response = await ApiService.updateUser(widget.user['id'], updatedUser);
@@ -58,32 +63,39 @@ class _EditUserPageState extends State<EditUserPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Edit User')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              TextFormField(
-                controller: nameController,
-                decoration: InputDecoration(labelText: "Name"),
-                validator: (val) => val == null || val.isEmpty ? "Enter a name" : null,
-              ),
-              TextFormField(
-                controller: emailController,
-                decoration: InputDecoration(labelText: "Email"),
-                validator: (val) => val == null || !val.contains('@') ? "Enter valid email" : null,
-              ),
-              SizedBox(height: 24),
-              saving
-                  ? CircularProgressIndicator()
-                  : ElevatedButton(
-                onPressed: saveChanges,
-                child: Text('Save Changes'),
-              ),
-            ],
+    return SafeArea(
+      child: Scaffold(
+        appBar: AppBar(title: Text('Edit User')),
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                TextFormField(
+                  controller: nameController,
+                  decoration: InputDecoration(labelText: "Name"),
+                  validator: (val) => val == null || val.isEmpty ? "Enter a name" : null,
+                ),
+                TextFormField(
+                  controller: emailController,
+                  decoration: InputDecoration(labelText: "Email"),
+                  validator: (val) => val == null || !val.contains('@') ? "Enter valid email" : null,
+                ),
+                TextFormField(
+                  controller: passwordController,
+                  decoration: InputDecoration(labelText: "New Password (leave blank to keep current)"),
+                  obscureText: true,
+                ),
+                SizedBox(height: 24),
+                saving
+                    ? CircularProgressIndicator()
+                    : ElevatedButton(
+                  onPressed: saveChanges,
+                  child: Text('Save Changes'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
