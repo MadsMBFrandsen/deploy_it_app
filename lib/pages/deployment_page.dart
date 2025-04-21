@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../components/navigation_bar.dart';
 import '../components/api_calls_temp.dart';
+import '../pages/status_page.dart'; // <-- Important for navigation after create
 
 class DeploymentPage extends StatelessWidget {
   const DeploymentPage({super.key});
@@ -12,11 +13,11 @@ class DeploymentPage extends StatelessWidget {
       body: SafeArea(
         child: Center(
           child: DefaultTabController(
-            length: 3, // Number of tabs
+            length: 3,
             child: Scaffold(
               appBar: AppBar(
-                title: Text('Deployment'),
-                bottom: TabBar(
+                title: const Text('Deployment'),
+                bottom: const TabBar(
                   tabs: [
                     Tab(text: 'Create'),
                     Tab(text: 'Update'),
@@ -24,7 +25,7 @@ class DeploymentPage extends StatelessWidget {
                   ],
                 ),
               ),
-              body: TabBarView(
+              body: const TabBarView(
                 children: [
                   CreateTab(),
                   UpdateTab(),
@@ -39,9 +40,10 @@ class DeploymentPage extends StatelessWidget {
   }
 }
 
-// Widgets for each tab content
-
+// CREATE TAB
 class CreateTab extends StatefulWidget {
+  const CreateTab({super.key});
+
   @override
   _CreateTabState createState() => _CreateTabState();
 }
@@ -50,7 +52,6 @@ class _CreateTabState extends State<CreateTab> {
   final _formKey = GlobalKey<FormState>();
   final nameController = TextEditingController();
   final descController = TextEditingController();
-
   List<Map<String, dynamic>> vmConfigs = [];
   Map<String, dynamic>? selectedConfig;
   List<String> packages = [];
@@ -73,28 +74,28 @@ class _CreateTabState extends State<CreateTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return Center(child: CircularProgressIndicator());
+    if (loading) return const Center(child: CircularProgressIndicator());
 
     return Padding(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       child: Form(
         key: _formKey,
         child: ListView(
           children: [
             TextFormField(
               controller: nameController,
-              decoration: InputDecoration(labelText: "VM Name"),
-              validator: (val) => val!.isEmpty ? "Enter name" : null,
+              decoration: const InputDecoration(labelText: "VM Name"),
+              validator: (val) => val == null || val.isEmpty ? "Enter name" : null,
             ),
             TextFormField(
               controller: descController,
-              decoration: InputDecoration(labelText: "Description"),
-              validator: (val) => val!.isEmpty ? "Enter description" : null,
+              decoration: const InputDecoration(labelText: "Description"),
+              validator: (val) => val == null || val.isEmpty ? "Enter description" : null,
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               value: selectedConfig?['id'],
-              decoration: InputDecoration(labelText: "Choose Configuration"),
+              decoration: const InputDecoration(labelText: "Choose Configuration"),
               items: vmConfigs.map((config) {
                 return DropdownMenuItem<String>(
                   value: config['id'],
@@ -106,14 +107,14 @@ class _CreateTabState extends State<CreateTab> {
                 setState(() => selectedConfig = config);
               },
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             if (selectedConfig != null) ...[
               Text("Memory: ${selectedConfig!['hardware']['memory']} GB"),
               Text("Cores: ${selectedConfig!['hardware']['cores']}"),
               Text("Disk: ${selectedConfig!['hardware']['disksize']} GB"),
             ],
-            SizedBox(height: 16),
-            Text("Select Packages"),
+            const SizedBox(height: 16),
+            const Text("Select Packages"),
             ...["Node.js", "PHP", "Python"].map((pkg) {
               return CheckboxListTile(
                 title: Text(pkg),
@@ -132,19 +133,61 @@ class _CreateTabState extends State<CreateTab> {
             ElevatedButton(
               onPressed: () async {
                 if (_formKey.currentState!.validate()) {
-                  final vmData = {
-                    "name": nameController.text,
-                    "desc": descController.text,
-                    "hardware": selectedConfig!['hardware'],
-                    "packages": packages
-                  };
-                  final res = await ApiService.createVM(vmData);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(jsonDecode(res.body)['message'])),
-                  );
+                  try {
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => const Center(child: CircularProgressIndicator()),
+                    );
+
+                    final vmData = {
+                      "name": nameController.text,
+                      "desc": descController.text,
+                      "hardware": selectedConfig!['hardware'],
+                      "packages": packages,
+                    };
+
+                    final res = await ApiService.createVM(vmData);
+
+                    if (!mounted) return;
+
+                    final resData = jsonDecode(res.body);
+
+                    if (res.statusCode == 200) {
+                      final newVmId = resData['id'];
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(resData['message'])),
+                      );
+
+                      await Future.delayed(const Duration(milliseconds: 500));
+                      if (!mounted) return;
+
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => StatusPage(selectedVmId: newVmId),
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Failed to create VM')),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: ${e.toString()}')),
+                      );
+                    }
+                  } finally {
+                    if (mounted) {
+                      Navigator.of(context, rootNavigator: true).pop();
+                    }
+                  }
                 }
               },
-              child: Text("Create VM"),
+              child: const Text("Create VM"),
             ),
           ],
         ),
@@ -153,8 +196,10 @@ class _CreateTabState extends State<CreateTab> {
   }
 }
 
-
+// UPDATE TAB
 class UpdateTab extends StatefulWidget {
+  const UpdateTab({super.key});
+
   @override
   _UpdateTabState createState() => _UpdateTabState();
 }
@@ -163,7 +208,6 @@ class _UpdateTabState extends State<UpdateTab> {
   final _formKey = GlobalKey<FormState>();
   final nameController = TextEditingController();
   final descController = TextEditingController();
-
   List<Map<String, dynamic>> configs = [];
   Map<String, dynamic>? selectedConfig;
   bool loading = true;
@@ -176,19 +220,11 @@ class _UpdateTabState extends State<UpdateTab> {
 
   void loadConfigs() async {
     final newConfigs = await ApiService.vmconfig();
-
     setState(() {
       configs = newConfigs;
       loading = false;
-
-      if (selectedConfig != null) {
-        final matched = newConfigs.where((c) => c['id'] == selectedConfig!['id']).toList();
-        selectedConfig = matched.isNotEmpty ? matched.first : null;
-      }
     });
   }
-
-
 
   void onSelect(String? id) {
     final config = configs.firstWhere((c) => c['id'] == id);
@@ -201,17 +237,17 @@ class _UpdateTabState extends State<UpdateTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return Center(child: CircularProgressIndicator());
+    if (loading) return const Center(child: CircularProgressIndicator());
 
     return Padding(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       child: Form(
         key: _formKey,
         child: ListView(
           children: [
             DropdownButtonFormField<String>(
               value: selectedConfig?['id'],
-              decoration: InputDecoration(labelText: "Select VM to Update"),
+              decoration: const InputDecoration(labelText: "Select VM to Update"),
               items: configs.map<DropdownMenuItem<String>>((c) {
                 return DropdownMenuItem<String>(
                   value: c['id'] as String,
@@ -223,41 +259,69 @@ class _UpdateTabState extends State<UpdateTab> {
             if (selectedConfig != null) ...[
               TextFormField(
                 controller: nameController,
-                decoration: InputDecoration(labelText: "VM Name"),
-                validator: (val) => val!.isEmpty ? "Enter name" : null,
+                decoration: const InputDecoration(labelText: "VM Name"),
+                validator: (val) => val == null || val.isEmpty ? "Enter name" : null,
               ),
               TextFormField(
                 controller: descController,
-                decoration: InputDecoration(labelText: "Description"),
-                validator: (val) => val!.isEmpty ? "Enter description" : null,
+                decoration: const InputDecoration(labelText: "Description"),
+                validator: (val) => val == null || val.isEmpty ? "Enter description" : null,
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               Text("Cores: ${selectedConfig!['hardware']['cores']}"),
               Text("RAM: ${selectedConfig!['hardware']['memory']} GB"),
               Text("Storage: ${selectedConfig!['hardware']['disksize']} GB"),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () async {
                   if (_formKey.currentState!.validate()) {
-                    final res = await ApiService.updateVM(selectedConfig!['id'], {
-                      "name": nameController.text,
-                      "desc": descController.text,
-                      "hardware": selectedConfig!['hardware'],
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(jsonDecode(res.body)['message'])),
-                    );
+                    try {
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => const Center(child: CircularProgressIndicator()),
+                      );
 
-                    // Refresh the VM list and selection
-                    loadConfigs(); // Refresh list
-                    setState(() {
-                      selectedConfig = null;
-                      nameController.clear();
-                      descController.clear();
-                    });
+                      final res = await ApiService.updateVM(selectedConfig!['id'], {
+                        "name": nameController.text,
+                        "desc": descController.text,
+                        "hardware": selectedConfig!['hardware'],
+                      });
+
+                      if (!mounted) return;
+
+                      final resData = jsonDecode(res.body);
+
+                      if (res.statusCode == 200) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(resData['message'])),
+                        );
+
+                        loadConfigs();
+                        setState(() {
+                          selectedConfig = null;
+                          nameController.clear();
+                          descController.clear();
+                        });
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Failed to update VM')),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: ${e.toString()}')),
+                        );
+                      }
+                    } finally {
+                      if (mounted) {
+                        Navigator.of(context, rootNavigator: true).pop();
+                      }
+                    }
                   }
                 },
-                child: Text("Update VM"),
+                child: const Text("Update VM"),
               ),
             ]
           ],
@@ -267,8 +331,10 @@ class _UpdateTabState extends State<UpdateTab> {
   }
 }
 
-
+// DELETE TAB
 class DeleteTab extends StatefulWidget {
+  const DeleteTab({super.key});
+
   @override
   _DeleteTabState createState() => _DeleteTabState();
 }
@@ -286,58 +352,80 @@ class _DeleteTabState extends State<DeleteTab> {
 
   void loadConfigs() async {
     final newConfigs = await ApiService.vmconfig();
-
     setState(() {
       configs = newConfigs;
       loading = false;
-
-      if (selectedConfig != null) {
-        final matched = newConfigs.where((c) => c['id'] == selectedConfig!['id']).toList();
-        selectedConfig = matched.isNotEmpty ? matched.first : null;
-      }
     });
   }
-
 
   void confirmDelete() async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text("Delete VM"),
-        content: Text("Are you sure you want to delete this VM?"),
+        title: const Text("Delete VM"),
+        content: const Text("Are you sure you want to delete this VM?"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text("Cancel")),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: Text("Delete")),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Delete")),
         ],
       ),
     );
 
     if (confirm == true) {
-      final res = await ApiService.deleteVM(selectedConfig!['id']);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(jsonDecode(res.body)['message'])),
-      );
+      try {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(child: CircularProgressIndicator()),
+        );
 
-      // Clear selection and reload list
-      setState(() {
-        selectedConfig = null;
-        loading = true;
-      });
-      loadConfigs(); // Reload updated list
+        final res = await ApiService.deleteVM(selectedConfig!['id']);
+
+        if (!mounted) return;
+
+        final resData = jsonDecode(res.body);
+
+        if (res.statusCode == 200) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(resData['message'])),
+          );
+
+          setState(() {
+            selectedConfig = null;
+            loading = true;
+          });
+
+          loadConfigs();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to delete VM')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${e.toString()}')),
+          );
+        }
+      } finally {
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return Center(child: CircularProgressIndicator());
+    if (loading) return const Center(child: CircularProgressIndicator());
 
     return Padding(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       child: ListView(
         children: [
           DropdownButtonFormField<String>(
             value: selectedConfig?['id'],
-            decoration: InputDecoration(labelText: "Select VM to Delete"),
+            decoration: const InputDecoration(labelText: "Select VM to Delete"),
             items: configs.map<DropdownMenuItem<String>>((c) {
               return DropdownMenuItem<String>(
                 value: c['id'] as String,
@@ -351,17 +439,17 @@ class _DeleteTabState extends State<DeleteTab> {
             },
           ),
           if (selectedConfig != null) ...[
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Text("Name: ${selectedConfig!['name']}"),
             Text("Desc: ${selectedConfig!['desc']}"),
             Text("Cores: ${selectedConfig!['hardware']['cores']}"),
             Text("RAM: ${selectedConfig!['hardware']['memory']} GB"),
             Text("Storage: ${selectedConfig!['hardware']['disksize']} GB"),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             ElevatedButton(
               onPressed: confirmDelete,
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: Text("Delete VM"),
+              child: const Text("Delete VM"),
             ),
           ]
         ],
