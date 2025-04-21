@@ -45,13 +45,13 @@ class ApiService {
   static Future<http.Response> createVM(Map<String, dynamic> vmData) async {
     final headers = await _getAuthHeaders();
     await Future.delayed(Duration(seconds: 1));
-    print("Creating VM with headers: $headers and data: $vmData");
+
     return http.Response(jsonEncode({"message": "VM created successfully"}), 201);
   }
 
   static Future<Map<String, dynamic>> fetchVM(String id) async {
     await Future.delayed(Duration(milliseconds: 800));
-    print("Fetching VM with ID: $id");
+
 
     final fakeData = {
       "9000": {
@@ -119,18 +119,44 @@ class ApiService {
 
   static Future<http.Response> updateVM(String id, Map<String, dynamic> updatedData) async {
     await Future.delayed(Duration(seconds: 1));
-    print("Updating VM $id with data: $updatedData");
+
     return http.Response(jsonEncode({"message": "VM updated successfully"}), 200);
   }
 
   static Future<http.Response> deleteVM(String id) async {
     await Future.delayed(Duration(milliseconds: 600));
-    print("Deleting VM with ID: $id");
+
     return http.Response(jsonEncode({"message": "VM deleted successfully"}), 200);
   }
 
   // --------------------------- Users -------------------------------
-  static Map<String, dynamic> _mockUser = {
+  // Fake Login
+  static Future<Map<String, dynamic>> login(String username, String password) async {
+    // Simulate network delay
+    await Future.delayed(Duration(seconds: 1));
+
+    // Fake user data
+    const fakeUsername = 'admin';
+    const fakePassword = '1234';
+
+    if (username == fakeUsername && password == fakePassword) {
+      // Fake successful response
+      return {
+        'token': 'fake_jwt_token_123456',
+        'user': {
+          'id': 1,
+          'username': fakeUsername,
+          'email': 'testuser@example.com',
+        },
+      };
+    } else {
+      // Simulate failed login
+      throw Exception('Invalid credentials');
+    }
+  }
+
+
+  static final Map<String, dynamic> _mockUser = {
     "username": "SuperMan",
     "password": "*****",
     "email": "clark@kent.kryp",
@@ -150,7 +176,7 @@ class ApiService {
     required String email,
   }) async {
     await Future.delayed(Duration(milliseconds: 500));
-    print("Updating user: $username, email: $email");
+
 
     _mockUser['username'] = username;
     _mockUser['password'] = '*****';
@@ -177,34 +203,33 @@ class ApiService {
 
   static Future<MockHttpResponse> updateUser(String userId, Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 400));
+
     final index = _mockUsers.indexWhere((user) => user['id'] == userId);
     if (index == -1) throw Exception('User not found');
 
-    _mockUsers[index] = {'id': userId, ...data};
-    return MockHttpResponse(statusCode: 200, body: '{"message": "User updated successfully"}');
-  }
+    // Get current user data
+    final existingUser = _mockUsers[index];
 
-  // --------------------------- Auth -------------------------------
-  static const _validUsername = "admin";
-  static const _validPassword = "1234";
+    // Build the updated user object
+    final updatedUser = {
+      ...existingUser,
+      ...data,
+      'id': userId, // Ensure ID remains intact
+    };
 
-  static Future<Map<String, dynamic>> login(String username, String password) async {
-    await Future.delayed(Duration(milliseconds: 600));
-
-    print('***');
-    print(_validUsername);
-    print(_validPassword);
-    print('***');
-
-    if (username == _validUsername && password == _validPassword) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('token', _mockToken);
-
-      return {"role": "admin"};
-    } else {
-      throw Exception("Invalid username or password");
+    // Only update the password if a new one is provided
+    if (!data.containsKey('password') || data['password'] == null || data['password'].isEmpty) {
+      updatedUser.remove('password'); // Don't include password if it's empty
     }
+
+    _mockUsers[index] = updatedUser;
+
+    return MockHttpResponse(
+      statusCode: 200,
+      body: jsonEncode({"message": "User updated successfully"}),
+    );
   }
+
 
   // --------------------------- Billing -------------------------------
   static Future<Map<String, dynamic>> getPaymentStatus() async {
