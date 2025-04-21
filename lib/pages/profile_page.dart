@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:deploy_it_app/components/navigation_bar.dart';
 import 'package:deploy_it_app/components/my_textfield.dart';
 import 'package:deploy_it_app/components/my_button.dart';
@@ -17,6 +18,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final emailController = TextEditingController();
 
   bool loading = true;
+  bool saving = false;
 
   @override
   void initState() {
@@ -26,10 +28,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
   void loadUserData() async {
     try {
-      final user = await ApiService.getUserProfile();
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? username = prefs.getString('user_name');
+      String? email = prefs.getString('user_email');
+
       setState(() {
-        usernameController.text = user['username'];
-        emailController.text = user['email'];
+        usernameController.text = username ?? '';
+        emailController.text = email ?? '';
         loading = false;
       });
     } catch (e) {
@@ -41,25 +46,48 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void updateProfile() async {
-    final username = usernameController.text;
-    final password = passwordController.text;
-    final email = emailController.text;
+    final username = usernameController.text.trim();
+    final password = passwordController.text.trim();
+    final email = emailController.text.trim();
+
+    if (username.isEmpty || password.isEmpty || email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please fill all fields')),
+      );
+      return;
+    }
+
+    setState(() => saving = true);
 
     try {
       final message = await ApiService.updateUserProfile(
         username: username,
-        password: password.isEmpty ? '*****' : password,
+        password: password,
         email: email,
       );
+
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_name', username);
+      await prefs.setString('user_email', email);
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );
+
       passwordController.clear();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to update profile: $e')),
       );
+    } finally {
+      setState(() => saving = false);
     }
+  }
+
+  void logout() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    Navigator.pushReplacementNamed(context, '/login');
   }
 
   @override
@@ -118,9 +146,19 @@ class _ProfilePageState extends State<ProfilePage> {
 
               const SizedBox(height: 20),
               MyButton(
-                onTap: updateProfile,
-                text: 'Save All Changes',
-                backgroundColor: Colors.green,
+                onTap: saving ? null : updateProfile,
+                text: saving ? 'Saving...' : 'Save All Changes',
+                backgroundColor: saving ? Colors.grey : Colors.green,
+                textColor: Colors.white,
+                padd: const EdgeInsets.all(25),
+                marg: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+
+              const SizedBox(height: 20),
+              MyButton(
+                onTap: logout,
+                text: 'Logout',
+                backgroundColor: Colors.red,
                 textColor: Colors.white,
                 padd: const EdgeInsets.all(25),
                 marg: const EdgeInsets.symmetric(horizontal: 8),
