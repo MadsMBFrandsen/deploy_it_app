@@ -2,23 +2,54 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl = "https://your-api.com/api";
+  static const String baseUrl = "https://staging.deploy-it.dk/api";
+
+  // Helper method to get token
+  static Future<String> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token') ?? '';
+    if (token.isEmpty) {
+      throw Exception('No auth token found');
+    }
+    return token;
+  }
 
   // Fetch all VM configs
   static Future<List<Map<String, dynamic>>> fetchAllVMConfigs() async {
-    final response = await http.get(Uri.parse('$baseUrl/vms/configs'));
+    final token = await _getToken();
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/configurations'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+
+
     if (response.statusCode == 200) {
       return List<Map<String, dynamic>>.from(jsonDecode(response.body));
     } else {
-      throw Exception('Failed to load VM configurations');
+      throw Exception('Failed to load VM configurations: ${response.body}');
     }
   }
 
   // Fetch a single VM by ID
   static Future<Map<String, dynamic>> fetchVM(String id) async {
-    final response = await http.get(Uri.parse('$baseUrl/vms/$id'));
+    final token = await _getToken();
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/vms/$id'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
     if (response.statusCode == 200) {
       return Map<String, dynamic>.from(jsonDecode(response.body));
     } else {
@@ -28,11 +59,17 @@ class ApiService {
 
   // Create a new VM
   static Future<http.Response> createVM(Map<String, dynamic> vmData) async {
+    final token = await _getToken();
+
     final response = await http.post(
       Uri.parse('$baseUrl/vms'),
-      headers: {'Content-Type': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
       body: jsonEncode(vmData),
     );
+
     if (response.statusCode == 201) {
       return response;
     } else {
@@ -42,11 +79,17 @@ class ApiService {
 
   // Update VM
   static Future<http.Response> updateVM(String id, Map<String, dynamic> updatedData) async {
+    final token = await _getToken();
+
     final response = await http.put(
       Uri.parse('$baseUrl/vms/$id'),
-      headers: {'Content-Type': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
       body: jsonEncode(updatedData),
     );
+
     if (response.statusCode == 200) {
       return response;
     } else {
@@ -56,7 +99,15 @@ class ApiService {
 
   // Delete VM
   static Future<http.Response> deleteVM(String id) async {
-    final response = await http.delete(Uri.parse('$baseUrl/vms/$id'));
+    final token = await _getToken();
+
+    final response = await http.delete(
+      Uri.parse('$baseUrl/vms/$id'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
     if (response.statusCode == 200) {
       return response;
     } else {
@@ -66,17 +117,37 @@ class ApiService {
 
   // Get list of all VMs
   static Future<List<Map<String, dynamic>>> getAllVMs() async {
-    final response = await http.get(Uri.parse('$baseUrl/vms'));
+    final token = await _getToken();
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/vms'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+
+
     if (response.statusCode == 200) {
       return List<Map<String, dynamic>>.from(jsonDecode(response.body));
     } else {
-      throw Exception('Failed to fetch VMs');
+      throw Exception('Failed to fetch VMs: ${response.body}');
     }
   }
 
   // Get specific VM status
   static Future<Map<String, dynamic>> getVMStatus(String vmId) async {
-    final response = await http.get(Uri.parse('$baseUrl/vms/$vmId/status'));
+    final token = await _getToken();
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/vms/$vmId/status'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
     if (response.statusCode == 200) {
       return Map<String, dynamic>.from(jsonDecode(response.body));
     } else {
@@ -86,12 +157,12 @@ class ApiService {
 
   // ---------------- User Section ---------------- //
 
-  // Login
-  static Future<Map<String, dynamic>> login(String username, String password) async {
+  // Login (no token needed yet)
+  static Future<Map<String, dynamic>> login(String email, String password) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/auth/login'),
+      Uri.parse('$baseUrl/login'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({"username": username, "password": password}),
+      body: jsonEncode({"email": email, "password": password}),
     );
 
     if (response.statusCode == 200) {
@@ -102,10 +173,14 @@ class ApiService {
   }
 
   // Get current user profile
-  static Future<Map<String, dynamic>> getUserProfile(String token) async {
+  static Future<Map<String, dynamic>> getUserProfile() async {
+    final token = await _getToken();
+
     final response = await http.get(
       Uri.parse('$baseUrl/users/profile'),
-      headers: {'Authorization': 'Bearer $token'},
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
     );
 
     if (response.statusCode == 200) {
@@ -117,11 +192,12 @@ class ApiService {
 
   // Update user profile
   static Future<String> updateUserProfile({
-    required String token,
     required String username,
     required String password,
     required String email,
   }) async {
+    final token = await _getToken();
+
     final response = await http.put(
       Uri.parse('$baseUrl/users/profile'),
       headers: {
@@ -143,10 +219,14 @@ class ApiService {
   }
 
   // Get all users
-  static Future<List<Map<String, dynamic>>> getUsers(String token) async {
+  static Future<List<Map<String, dynamic>>> getUsers() async {
+    final token = await _getToken();
+
     final response = await http.get(
       Uri.parse('$baseUrl/users'),
-      headers: {'Authorization': 'Bearer $token'},
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
     );
 
     if (response.statusCode == 200) {
@@ -157,7 +237,9 @@ class ApiService {
   }
 
   // Update user
-  static Future<String> updateUser(String token, String userId, Map<String, dynamic> data) async {
+  static Future<String> updateUser(String userId, Map<String, dynamic> data) async {
+    final token = await _getToken();
+
     final response = await http.put(
       Uri.parse('$baseUrl/users/$userId'),
       headers: {
@@ -175,10 +257,14 @@ class ApiService {
   }
 
   // Delete user
-  static Future<String> deleteUser(String token, String userId) async {
+  static Future<String> deleteUser(String userId) async {
+    final token = await _getToken();
+
     final response = await http.delete(
       Uri.parse('$baseUrl/users/$userId'),
-      headers: {'Authorization': 'Bearer $token'},
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
     );
 
     if (response.statusCode == 200) {
@@ -190,10 +276,14 @@ class ApiService {
 
   // ---------------- Payment Section ---------------- //
 
-  static Future<Map<String, dynamic>> getPaymentStatus(String token) async {
+  static Future<Map<String, dynamic>> getPaymentStatus() async {
+    final token = await _getToken();
+
     final response = await http.get(
-      Uri.parse('$baseUrl/billing/status'),
-      headers: {'Authorization': 'Bearer $token'},
+      Uri.parse('$baseUrl/user/paid-status'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
     );
 
     if (response.statusCode == 200) {
@@ -202,4 +292,5 @@ class ApiService {
       throw Exception('Failed to fetch payment status');
     }
   }
+
 }
