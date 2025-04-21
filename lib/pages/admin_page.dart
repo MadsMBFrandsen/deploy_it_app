@@ -28,7 +28,7 @@ class _AdminPageState extends State<AdminPage> {
         loading = false;
       });
     } catch (e) {
-      print("Error fetching users: $e");
+
       setState(() => loading = false);
     }
   }
