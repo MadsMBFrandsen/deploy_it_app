@@ -34,7 +34,19 @@ class _NavigationBarState extends State<NavigationBarCustom> {
   @override
   void initState() {
     super.initState();
+    checkLoginStatus();
     loadUserRole();
+  }
+
+  Future<void> checkLoginStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+
+    if (token == null) {
+      if (!mounted) return;
+      // No token? Redirect to login
+      Navigator.pushReplacementNamed(context, '/login');
+    }
   }
 
   Future<void> loadUserRole() async {
@@ -229,26 +241,28 @@ class _NavigationBarState extends State<NavigationBarCustom> {
               ),
             );
 
+            if (!mounted) return;
+
             if (confirm == true) {
               // Show loading dialog
               showDialog(
                 context: context,
                 barrierDismissible: false,
-                builder: (context) => Center(
-                  child: CircularProgressIndicator(),
-                ),
+                builder: (context) => Center(child: CircularProgressIndicator()),
               );
 
               final prefs = await SharedPreferences.getInstance();
               await prefs.clear();
-
-              // Give a moment for UX smoothness
               await Future.delayed(Duration(milliseconds: 500));
 
-              // Close loading dialog
+              if (!mounted) return; // ✨
+
               Navigator.of(context).pop();
 
+              if (!mounted) return; // ✨
+
               Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
+
             }
           } else {
             _navigateWithTransition(route);
