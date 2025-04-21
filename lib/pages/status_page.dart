@@ -5,7 +5,9 @@ import 'package:fl_chart/fl_chart.dart';
 import '../components/circle_usage.dart';
 
 class StatusPage extends StatefulWidget {
-  const StatusPage({super.key});
+  final String? selectedVmId; // Allow selected VM id
+
+  const StatusPage({super.key, this.selectedVmId});
 
   @override
   _StatusPageState createState() => _StatusPageState();
@@ -34,21 +36,38 @@ class _StatusPageState extends State<StatusPage> {
     try {
       final vms = await ApiService.getAllVMs();
       if (vms.isNotEmpty) {
-        final firstVm = vms.first;
+        final defaultVm = widget.selectedVmId != null
+            ? vms.firstWhere(
+              (vm) => vm['id'] == widget.selectedVmId,
+          orElse: () => vms.first,
+        )
+            : vms.first;
+
         setState(() {
           vmList = vms;
-          selectedVmId = firstVm['id'];
-          selectedVmName = firstVm['name'];
+          selectedVmId = defaultVm['id'];
+          selectedVmName = defaultVm['name'];
           loading = true;
         });
 
-        await fetchVMStatus(firstVm['id']);
+        await fetchVMStatus(defaultVm['id']);
       } else {
-        setState(() => loading = false);
+        // No VMs found
+        setState(() {
+          vmList = [];
+          selectedVmId = null;
+          selectedVmName = null;
+          cpuUsage = 0;
+          ramUsage = 0;
+          storageUsage = 0;
+          chartData = [];
+          logs = [];
+          loading = false;
+        });
       }
     } catch (e) {
       setState(() => loading = false);
-      print('Error fetching VMs: $e');
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to fetch VMs')),
       );
@@ -58,7 +77,7 @@ class _StatusPageState extends State<StatusPage> {
   Future<void> fetchVMStatus(String vmId) async {
     try {
       final status = await ApiService.getVMStatus(vmId);
-      print('VM Status: $status');
+
 
       setState(() {
         cpuUsage = _parsePercentage(status['cpu_usage']);
@@ -72,7 +91,7 @@ class _StatusPageState extends State<StatusPage> {
       });
     } catch (e) {
       setState(() => loading = false);
-      print('Error fetching VM status: $e');
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to load VM status.')),
       );
@@ -89,6 +108,14 @@ class _StatusPageState extends State<StatusPage> {
       body: SafeArea(
         child: loading
             ? const Center(child: CircularProgressIndicator())
+            : vmList.isEmpty
+            ? const Center(
+          child: Text(
+            "No VMs available.\nCreate your first VM!",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 18),
+          ),
+        )
             : Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -237,19 +264,14 @@ class _StatusPageState extends State<StatusPage> {
           const Text('No logs available.')
         else
           ...logs.map(
-                (log) =>
-                ListTile(
-                  leading: const Icon(Icons.info_outline, color: Colors.orange),
-                  title: Text(log),
-                  subtitle: Text(
-                    'Timestamp: ${DateTime.now()}',
-                    style: TextStyle(fontSize: 12, color: Theme
-                        .of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.color),
-                  ),
-                ),
+                (log) => ListTile(
+              leading: const Icon(Icons.info_outline, color: Colors.orange),
+              title: Text(log),
+              subtitle: Text(
+                'Timestamp: ${DateTime.now()}',
+                style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
+              ),
+            ),
           ),
       ],
     );
