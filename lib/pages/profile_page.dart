@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:deploy_it_app/components/navigation_bar.dart';
 import 'package:deploy_it_app/components/my_textfield.dart';
 import 'package:deploy_it_app/components/my_button.dart';
-import 'package:deploy_it_app/components/api_calls_temp.dart';
+import 'package:deploy_it_app/components/api_calls.dart';
+
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -12,49 +14,92 @@ class ProfilePage extends StatefulWidget {
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin {
   final usernameController = TextEditingController();
-  final passwordController = TextEditingController();
   final emailController = TextEditingController();
+  final oldPasswordController = TextEditingController();
+  final newPasswordController = TextEditingController();
 
   bool loading = true;
   bool saving = false;
 
+  int notificationInterval = 30;
+  bool notificationsEnabled = true;
+  int cpuThreshold = 80;
+  int ramThreshold = 80;
+  int storageThreshold = 90;
+
+  late TabController _tabController;
+
+
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     loadUserData();
   }
+
+
 
   void loadUserData() async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? username = prefs.getString('user_name');
       String? email = prefs.getString('user_email');
+      int? savedInterval = prefs.getInt('notification_interval');
+      bool? savedEnabled = prefs.getBool('notifications_enabled');
+      int? savedCpuThreshold = prefs.getInt('cpu_threshold');
+      int? savedRamThreshold = prefs.getInt('ram_threshold');
+      int? savedStorageThreshold = prefs.getInt('storage_threshold');
+
+      final List<int> validIntervals = [15, 30, 60];
 
       setState(() {
         usernameController.text = username ?? '';
         emailController.text = email ?? '';
+        notificationInterval = validIntervals.contains(savedInterval) ? savedInterval! : 30;
+        notificationsEnabled = savedEnabled ?? true;
+        cpuThreshold = savedCpuThreshold ?? 80;
+        ramThreshold = savedRamThreshold ?? 80;
+        storageThreshold = savedStorageThreshold ?? 90;
         loading = false;
       });
     } catch (e) {
       setState(() => loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load user data')),
+        const SnackBar(content: Text('Failed to load user data')),
       );
     }
   }
 
-  void updateProfile() async {
+  void saveProfileSettings() async {
     final username = usernameController.text.trim();
-    final password = passwordController.text.trim();
     final email = emailController.text.trim();
+    final oldPassword = oldPasswordController.text.trim();
+    final newPassword = newPasswordController.text.trim();
 
-    if (username.isEmpty || password.isEmpty || email.isEmpty) {
+    if (username.isEmpty || email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please fill all fields')),
+        const SnackBar(content: Text('Username and Email cannot be empty')),
       );
       return;
+    }
+
+    bool wantsToChangePassword = oldPassword.isNotEmpty || newPassword.isNotEmpty;
+
+    if (wantsToChangePassword) {
+      if (oldPassword.isEmpty || newPassword.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please fill both old and new password fields')),
+        );
+        return;
+      }
+      if (newPassword.length < 6) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('New password must be at least 6 characters')),
+        );
+        return;
+      }
     }
 
     setState(() => saving = true);
@@ -62,8 +107,9 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       final message = await ApiService.updateUserProfile(
         username: username,
-        password: password,
         email: email,
+        oldPassword: wantsToChangePassword ? oldPassword : null,
+        newPassword: wantsToChangePassword ? newPassword : null,
       );
 
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -74,10 +120,36 @@ class _ProfilePageState extends State<ProfilePage> {
         SnackBar(content: Text(message)),
       );
 
-      passwordController.clear();
+      oldPasswordController.clear();
+      newPasswordController.clear();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to update profile: $e')),
+      );
+    } finally {
+      setState(() => saving = false);
+    }
+  }
+
+  void saveNotificationSettings() async {
+    setState(() => saving = true);
+
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('notification_interval', notificationInterval);
+      await prefs.setBool('notifications_enabled', notificationsEnabled);
+      await prefs.setInt('cpu_threshold', cpuThreshold);
+      await prefs.setInt('ram_threshold', ramThreshold);
+      await prefs.setInt('storage_threshold', storageThreshold);
+
+
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Notification Settings Saved!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save settings: $e')),
       );
     } finally {
       setState(() => saving = false);
@@ -92,9 +164,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   void dispose() {
+    _tabController.dispose();
     usernameController.dispose();
-    passwordController.dispose();
     emailController.dispose();
+    oldPasswordController.dispose();
+    newPasswordController.dispose();
     super.dispose();
   }
 
@@ -104,68 +178,133 @@ class _ProfilePageState extends State<ProfilePage> {
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              // User info with icon
-              Row(
+        child: Column(
+          children: [
+            TabBar(
+              controller: _tabController,
+              labelColor: Colors.blue,
+              unselectedLabelColor: Colors.grey,
+              tabs: const [
+                Tab(text: 'Edit Profile'),
+                Tab(text: 'Notification Settings'),
+              ],
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
                 children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.blueGrey,
-                    child: Icon(Icons.person, size: 30, color: Colors.white),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          usernameController.text,
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          emailController.text,
-                          style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
+                  buildEditProfileTab(),
+                  buildNotificationSettingsTab(),
                 ],
               ),
-              const SizedBox(height: 25),
-              const Text('Edit Profile', style: TextStyle(fontSize: 24)),
-              const SizedBox(height: 25),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-              _buildLabeledField("Username", usernameController, false),
-              _buildLabeledField("Password", passwordController, true),
-              _buildLabeledField("Email", emailController, false),
+  Widget buildEditProfileTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          _buildLabeledField("Username", usernameController, false),
+          _buildLabeledField("Email", emailController, false),
+          const SizedBox(height: 20),
+          _buildLabeledField("Old Password", oldPasswordController, true),
+          _buildLabeledField("New Password", newPasswordController, true),
+          const SizedBox(height: 30),
+          MyButton(
+            onTap: saving ? null : saveProfileSettings,
+            text: saving ? 'Saving...' : 'Save Profile',
+            backgroundColor: saving ? Colors.grey : Colors.green,
+            textColor: Colors.white,
+            padd: const EdgeInsets.all(25),
+            marg: const EdgeInsets.symmetric(horizontal: 8),
+          ),
+          const SizedBox(height: 20),
+          MyButton(
+            onTap: logout,
+            text: 'Logout',
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+            padd: const EdgeInsets.all(25),
+            marg: const EdgeInsets.symmetric(horizontal: 8),
+          ),
+        ],
+      ),
+    );
+  }
 
-              const SizedBox(height: 20),
-              MyButton(
-                onTap: saving ? null : updateProfile,
-                text: saving ? 'Saving...' : 'Save All Changes',
-                backgroundColor: saving ? Colors.grey : Colors.green,
-                textColor: Colors.white,
-                padd: const EdgeInsets.all(25),
-                marg: const EdgeInsets.symmetric(horizontal: 8),
-              ),
-
-              const SizedBox(height: 20),
-              MyButton(
-                onTap: logout,
-                text: 'Logout',
-                backgroundColor: Colors.red,
-                textColor: Colors.white,
-                padd: const EdgeInsets.all(25),
-                marg: const EdgeInsets.symmetric(horizontal: 8),
+  Widget buildNotificationSettingsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Receive Notifications', style: TextStyle(fontSize: 18)),
+              Switch(
+                value: notificationsEnabled,
+                onChanged: (bool value) {
+                  setState(() {
+                    notificationsEnabled = value;
+                  });
+                },
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Notify Every (minutes)', style: TextStyle(fontSize: 18)),
+              DropdownButton<int>(
+                value: notificationInterval,
+                items: [15, 30, 60].map((int value) {
+                  return DropdownMenuItem<int>(
+                    value: value,
+                    child: Text('$value min'),
+                  );
+                }).toList(),
+                onChanged: (int? newValue) {
+                  setState(() {
+                    notificationInterval = newValue ?? 30;
+                  });
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 30),
+          const Text('Warning Thresholds', style: TextStyle(fontSize: 24)),
+          const SizedBox(height: 20),
+          _buildThresholdRow('CPU Warning Level', cpuThreshold, (val) {
+            setState(() {
+              cpuThreshold = val ?? 80;
+            });
+          }),
+          _buildThresholdRow('RAM Warning Level', ramThreshold, (val) {
+            setState(() {
+              ramThreshold = val ?? 80;
+            });
+          }),
+          _buildThresholdRow('Storage Warning Level', storageThreshold, (val) {
+            setState(() {
+              storageThreshold = val ?? 90;
+            });
+          }),
+          const SizedBox(height: 30),
+          MyButton(
+            onTap: saving ? null : saveNotificationSettings,
+            text: saving ? 'Saving...' : 'Save Notification Settings',
+            backgroundColor: saving ? Colors.grey : Colors.blue,
+            textColor: Colors.white,
+            padd: const EdgeInsets.all(25),
+            marg: const EdgeInsets.symmetric(horizontal: 8),
+          ),
+        ],
       ),
     );
   }
@@ -182,6 +321,25 @@ class _ProfilePageState extends State<ProfilePage> {
           obscureText: isPassword,
         ),
         const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildThresholdRow(String label, int currentValue, Function(int?) onChanged) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 18)),
+        DropdownButton<int>(
+          value: currentValue,
+          items: [30, 70, 80, 85, 90, 95].map((int value) {
+            return DropdownMenuItem<int>(
+              value: value,
+              child: Text('$value%'),
+            );
+          }).toList(),
+          onChanged: onChanged,
+        ),
       ],
     );
   }
