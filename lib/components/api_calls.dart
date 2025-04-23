@@ -39,6 +39,29 @@ class ApiService {
     }
   }
 
+
+  // Fetch all VM configs
+  static Future<List<Map<String, dynamic>>> fetchAllVMConfigPackages() async {
+    final token = await _getToken();
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/packages'), // <- Adjust endpoint if needed!
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+    } else {
+      throw Exception('Failed to load packages: ${response.body}');
+    }
+  }
+
+
+
   // Fetch a single VM by ID
   static Future<Map<String, dynamic>> fetchVM(String id) async {
     final token = await _getToken();
@@ -46,6 +69,7 @@ class ApiService {
     final response = await http.get(
       Uri.parse('$baseUrl/vms/$id'),
       headers: {
+        'Accept': 'application/json',
         'Authorization': 'Bearer $token',
       },
     );
@@ -65,6 +89,7 @@ class ApiService {
       Uri.parse('$baseUrl/vms'),
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode(vmData),
@@ -85,6 +110,7 @@ class ApiService {
       Uri.parse('$baseUrl/vms/$id'),
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode(updatedData),
@@ -104,6 +130,7 @@ class ApiService {
     final response = await http.delete(
       Uri.parse('$baseUrl/vms/$id'),
       headers: {
+        'Accept': 'application/json',
         'Authorization': 'Bearer $token',
       },
     );
@@ -144,6 +171,7 @@ class ApiService {
     final response = await http.get(
       Uri.parse('$baseUrl/vms/$vmId/status'),
       headers: {
+        'Accept': 'application/json',
         'Authorization': 'Bearer $token',
       },
     );
@@ -161,7 +189,10 @@ class ApiService {
   static Future<Map<String, dynamic>> login(String email, String password) async {
     final response = await http.post(
       Uri.parse('$baseUrl/login'),
-      headers: {'Content-Type': 'application/json'},
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
       body: jsonEncode({"email": email, "password": password}),
     );
 
@@ -179,6 +210,7 @@ class ApiService {
     final response = await http.get(
       Uri.parse('$baseUrl/users/profile'),
       headers: {
+        'Accept': 'application/json',
         'Authorization': 'Bearer $token',
       },
     );
@@ -190,25 +222,75 @@ class ApiService {
     }
   }
 
+  static Future<String> signUpUser({
+    required String username,
+    required String email,
+    required String password,
+  }) async {
+    final Map<String, dynamic> body = {
+      "name": username,
+      "email": email,
+      "password": password,
+    };
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/register'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return "User created successfully";
+    } else {
+      try {
+        final responseData = jsonDecode(response.body);
+
+        if (responseData['message'] != null) {
+          throw Exception(responseData['message']);
+        } else {
+          throw Exception("Failed to create user");
+        }
+      } catch (e) {
+        // fallback: if body is not JSON, show raw text
+        print(response.body);
+        throw Exception(response.body);
+      }
+    }
+  }
+
+
+
   // Update user profile
   static Future<String> updateUserProfile({
     required String username,
-    required String password,
+    String? oldPassword,
+    String? newPassword,
     required String email,
   }) async {
     final token = await _getToken();
 
+    // Build body dynamically
+    final Map<String, dynamic> body = {
+      "username": username,
+      "email": email,
+    };
+
+    if (oldPassword != null && newPassword != null) {
+      body["oldPassword"] = oldPassword;
+      body["newPassword"] = newPassword;
+    }
+
     final response = await http.put(
-      Uri.parse('$baseUrl/users/profile'),
+      Uri.parse('$baseUrl/user/update'),
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'Authorization': 'Bearer $token',
       },
-      body: jsonEncode({
-        "username": username,
-        "password": password,
-        "email": email,
-      }),
+      body: jsonEncode(body),
     );
 
     if (response.statusCode == 200) {
@@ -218,6 +300,7 @@ class ApiService {
     }
   }
 
+
   // Get all users
   static Future<List<Map<String, dynamic>>> getUsers() async {
     final token = await _getToken();
@@ -225,6 +308,7 @@ class ApiService {
     final response = await http.get(
       Uri.parse('$baseUrl/users'),
       headers: {
+        'Accept': 'application/json',
         'Authorization': 'Bearer $token',
       },
     );
@@ -244,6 +328,7 @@ class ApiService {
       Uri.parse('$baseUrl/users/$userId'),
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode(data),
@@ -263,6 +348,7 @@ class ApiService {
     final response = await http.delete(
       Uri.parse('$baseUrl/users/$userId'),
       headers: {
+        'Accept': 'application/json',
         'Authorization': 'Bearer $token',
       },
     );
@@ -274,6 +360,9 @@ class ApiService {
     }
   }
 
+
+
+
   // ---------------- Payment Section ---------------- //
 
   static Future<Map<String, dynamic>> getPaymentStatus() async {
@@ -282,6 +371,7 @@ class ApiService {
     final response = await http.get(
       Uri.parse('$baseUrl/user/paid-status'),
       headers: {
+        'Accept': 'application/json',
         'Authorization': 'Bearer $token',
       },
     );
