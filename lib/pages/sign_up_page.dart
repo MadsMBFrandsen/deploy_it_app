@@ -1,7 +1,7 @@
 import 'package:deploy_it_app/components/my_button.dart';
 import 'package:deploy_it_app/components/my_textfield.dart';
 import 'package:flutter/material.dart';
-import 'package:deploy_it_app/components/api_calls.dart'; // Make sure your api_calls.dart is updated
+import 'package:deploy_it_app/components/api_calls.dart';
 
 class SignUpPage extends StatelessWidget {
   SignUpPage({super.key});
@@ -57,7 +57,7 @@ class SignUpPage extends StatelessWidget {
       backgroundColor: Colors.grey[300],
       body: SafeArea(
         child: Center(
-          child: SingleChildScrollView( // <-- add scroll for small screens
+          child: SingleChildScrollView(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -67,7 +67,7 @@ class SignUpPage extends StatelessWidget {
 
                 const SizedBox(height: 25),
 
-                Text('Sign Up', // <-- corrected this from 'Login'
+                Text('Sign Up',
                   style: TextStyle(color: Colors.black,
                       fontSize: 30,
                       fontWeight: FontWeight.bold),
@@ -97,7 +97,6 @@ class SignUpPage extends StatelessWidget {
 
                 const SizedBox(height: 25),
 
-                // Password field
                 MyTextField(
                   controller: passwordController,
                   hintText: 'Password',

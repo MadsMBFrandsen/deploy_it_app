@@ -254,8 +254,6 @@ class ApiService {
           throw Exception("Failed to create user");
         }
       } catch (e) {
-        // fallback: if body is not JSON, show raw text
-        print(response.body);
         throw Exception(response.body);
       }
     }
