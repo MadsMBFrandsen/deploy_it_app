@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import '../components/api_calls_temp.dart';
+import 'api_calls_temp.dart';
 
 class EditUserPage extends StatefulWidget {
   final Map<String, dynamic> user;
