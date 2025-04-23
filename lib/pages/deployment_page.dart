@@ -1,8 +1,20 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../components/navigation_bar.dart';
-import '../components/api_calls_temp.dart';
-import '../pages/status_page.dart'; // <-- Important for navigation after create
+import '../components/api_calls.dart';
+import '../pages/status_page.dart';
+
+// Helper function to map configuration
+Map<String, dynamic> mapConfig(Map<String, dynamic> config) {
+  return {
+    ...config,
+    'hardware': {
+      'cores': config['cores'],
+      'memory': config['memory'],
+      'disksize': config['disk_space'],
+    },
+  };
+}
 
 class DeploymentPage extends StatelessWidget {
   const DeploymentPage({super.key});
@@ -52,29 +64,58 @@ class _CreateTabState extends State<CreateTab> {
   final _formKey = GlobalKey<FormState>();
   final nameController = TextEditingController();
   final descController = TextEditingController();
+
   List<Map<String, dynamic>> vmConfigs = [];
   Map<String, dynamic>? selectedConfig;
-  List<String> packages = [];
-  bool loading = true;
+
+  List<Map<String, dynamic>> availablePackages = [];
+  List<String> selectedPackageIds = [];
+
+  bool loadingConfigs = true;
+  bool loadingPackages = true;
 
   @override
   void initState() {
     super.initState();
     loadVMConfigs();
+    loadPackages();
   }
 
   void loadVMConfigs() async {
     final configs = await ApiService.fetchAllVMConfigs();
     setState(() {
-      vmConfigs = configs;
-      selectedConfig = configs.isNotEmpty ? configs.first : null;
-      loading = false;
+      vmConfigs = configs.map(mapConfig).toList();
+      selectedConfig = vmConfigs.isNotEmpty ? vmConfigs.first : null;
+      loadingConfigs = false;
     });
   }
 
+  //void loadPackages() async {
+   // final packages = await ApiService.fetchAllVMConfigPackages();
+   // setState(() {
+    //  availablePackages = packages;
+   //   loadingPackages = false;
+   // });
+  //}
+
+  void loadPackages() async {
+    // TEMPORARY MOCK DATA
+    await Future.delayed(const Duration(milliseconds: 500)); // simulate network delay
+
+    setState(() {
+      availablePackages = [
+        {'id': 'fake-uuid-nodejs', 'name': 'Node.js'},
+        {'id': 'fake-uuid-php', 'name': 'PHP'},
+        {'id': 'fake-uuid-python', 'name': 'Python'},
+      ];
+      loadingPackages = false;
+    });
+  }
+
+
   @override
   Widget build(BuildContext context) {
-    if (loading) return const Center(child: CircularProgressIndicator());
+    if (loadingConfigs || loadingPackages) return const Center(child: CircularProgressIndicator());
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -115,16 +156,16 @@ class _CreateTabState extends State<CreateTab> {
             ],
             const SizedBox(height: 16),
             const Text("Select Packages"),
-            ...["Node.js", "PHP", "Python"].map((pkg) {
+            ...availablePackages.map((pkg) {
               return CheckboxListTile(
-                title: Text(pkg),
-                value: packages.contains(pkg),
+                title: Text(pkg['name'] as String),
+                value: selectedPackageIds.contains(pkg['id'] as String),
                 onChanged: (val) {
                   setState(() {
                     if (val == true) {
-                      packages.add(pkg);
+                      selectedPackageIds.add(pkg['id'] as String);
                     } else {
-                      packages.remove(pkg);
+                      selectedPackageIds.remove(pkg['id'] as String);
                     }
                   });
                 },
@@ -142,9 +183,20 @@ class _CreateTabState extends State<CreateTab> {
 
                     final vmData = {
                       "name": nameController.text,
-                      "desc": descController.text,
-                      "hardware": selectedConfig!['hardware'],
-                      "packages": packages,
+                      "description": descController.text,
+                      "instance_type": "server",
+                      "server_configuration": {
+                        "id": selectedConfig!['id'],
+                        "name": selectedConfig!['name'],
+                        "description": selectedConfig!['description'],
+                        "cores": selectedConfig!['hardware']['cores'],
+                        "memory": selectedConfig!['hardware']['memory'],
+                        "disk_space": selectedConfig!['hardware']['disksize'],
+                        "proxmox_configuration_id": selectedConfig!['proxmox_configuration_id'] is int
+                            ? selectedConfig!['proxmox_configuration_id']
+                            : int.parse(selectedConfig!['proxmox_configuration_id'].toString()),
+                      },
+                      "selected_packages": selectedPackageIds,
                     };
 
                     final res = await ApiService.createVM(vmData);
@@ -196,6 +248,7 @@ class _CreateTabState extends State<CreateTab> {
   }
 }
 
+
 // UPDATE TAB
 class UpdateTab extends StatefulWidget {
   const UpdateTab({super.key});
@@ -219,9 +272,9 @@ class _UpdateTabState extends State<UpdateTab> {
   }
 
   void loadConfigs() async {
-    final newConfigs = await ApiService.vmconfig();
+    final newConfigs = await ApiService.fetchAllVMConfigs();
     setState(() {
-      configs = newConfigs;
+      configs = newConfigs.map(mapConfig).toList();
       loading = false;
     });
   }
@@ -351,9 +404,9 @@ class _DeleteTabState extends State<DeleteTab> {
   }
 
   void loadConfigs() async {
-    final newConfigs = await ApiService.vmconfig();
+    final newConfigs = await ApiService.fetchAllVMConfigs();
     setState(() {
-      configs = newConfigs;
+      configs = newConfigs.map(mapConfig).toList();
       loading = false;
     });
   }
