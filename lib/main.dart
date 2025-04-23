@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Import your pages
+import 'package:deploy_it_app/components/theme_controller.dart';
 import 'package:deploy_it_app/pages/admin_page.dart';
 import 'package:deploy_it_app/pages/deployment_page.dart';
 import 'package:deploy_it_app/pages/login_page.dart';
@@ -9,10 +9,8 @@ import 'package:deploy_it_app/pages/status_page.dart';
 import 'package:deploy_it_app/pages/sign_up_page.dart';
 import 'package:deploy_it_app/pages/profile_page.dart';
 import 'package:deploy_it_app/pages/pay_status.dart';
-import 'package:deploy_it_app/components/theme_controller.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
@@ -30,7 +28,7 @@ class MyApp extends StatelessWidget {
           theme: ThemeData.light(),
           darkTheme: ThemeData.dark(),
           themeMode: currentMode,
-          initialRoute: '/splash', // Start at splash screen
+          initialRoute: '/splash',
           routes: {
             '/splash': (context) => const SplashScreen(),
             '/login': (context) => LoginPage(),
@@ -47,7 +45,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// SplashScreen widget
+// SplashScreen
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -62,11 +60,13 @@ class _SplashScreenState extends State<SplashScreen> {
     checkLoginStatus();
   }
 
+
+
   Future<void> checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
 
-    await Future.delayed(const Duration(seconds: 2)); // Show splash for 2 seconds
+    await Future.delayed(const Duration(seconds: 2));
 
     if (!mounted) return;
 
@@ -78,7 +78,6 @@ class _SplashScreenState extends State<SplashScreen> {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => LoginPage()),
       );
-
     }
   }
 
