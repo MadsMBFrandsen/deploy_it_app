@@ -25,7 +25,7 @@ class _PayStatusState extends State<PayStatus> {
   void fetchPaymentStatus() async {
     try {
       final response = await ApiService.getPaymentStatus();
-      print('Response received: $response'); // For debugging
+
       final data = response['data'];
 
       setState(() {
@@ -37,7 +37,7 @@ class _PayStatusState extends State<PayStatus> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Failed to fetch payment status")),
       );
-      print('Error: $e'); // So you see what went wrong
+
     }
   }
 
