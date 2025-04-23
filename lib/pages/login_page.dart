@@ -53,111 +53,113 @@ class LoginPage extends StatelessWidget {
       backgroundColor: Colors.grey[300],
       body: SafeArea(
         child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const SizedBox(height: 50),
-
-              GestureDetector(
-                onLongPress: fillAdminCredentials, // <- Secret long press
-                child: const Icon(
-                  Icons.lock,
-                  size: 100,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(height: 50),
+            
+                GestureDetector(
+                  onLongPress: fillAdminCredentials, // <- Secret long press
+                  child: const Icon(
+                    Icons.lock,
+                    size: 100,
+                  ),
                 ),
-              ),
-
-              const SizedBox(height: 25),
-
-              Text(
-                'Login',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 30,
-                  fontWeight: FontWeight.bold,
+            
+                const SizedBox(height: 25),
+            
+                Text(
+                  'Login',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 30,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-
-              const SizedBox(height: 25),
-
-              Text(
-                'Welcome',
-                style: TextStyle(
-                  color: Colors.grey[700],
-                  fontSize: 16,
+            
+                const SizedBox(height: 25),
+            
+                Text(
+                  'Welcome',
+                  style: TextStyle(
+                    color: Colors.grey[700],
+                    fontSize: 16,
+                  ),
                 ),
-              ),
-
-              const SizedBox(height: 25),
-
-              MyTextField(
-                controller: emailController,
-                hintText: 'Email',
-                obscureText: false,
-              ),
-
-              const SizedBox(height: 25),
-
-              MyTextField(
-                controller: passwordController,
-                hintText: 'Password',
-                obscureText: false,
-              ),
-
-              const SizedBox(height: 25),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 25.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+            
+                const SizedBox(height: 25),
+            
+                MyTextField(
+                  controller: emailController,
+                  hintText: 'Email',
+                  obscureText: false,
+                ),
+            
+                const SizedBox(height: 25),
+            
+                MyTextField(
+                  controller: passwordController,
+                  hintText: 'Password',
+                  obscureText: false,
+                ),
+            
+                const SizedBox(height: 25),
+            
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 25.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        'Forgot Password?',
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+            
+                const SizedBox(height: 25),
+            
+                MyButton(
+                  onTap: () => signUserIn(context),
+                  text: 'Sign In',
+                  backgroundColor: Colors.blue,
+                  textColor: Colors.white,
+                  padd: const EdgeInsets.all(25),
+                  marg: const EdgeInsets.symmetric(horizontal: 25),
+                ),
+            
+                const SizedBox(height: 25),
+            
+                Divider(
+                  thickness: 0.5,
+                  color: Colors.grey[400],
+                ),
+            
+                const SizedBox(height: 25),
+            
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      'Forgot Password?',
-                      style: TextStyle(color: Colors.grey[600]),
+                    const Text('Not A Member'),
+                    const SizedBox(width: 4),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.pushNamed(context, '/signup');
+                      },
+                      child: Text(
+                        'Register Here',
+                        style: TextStyle(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-              ),
-
-              const SizedBox(height: 25),
-
-              MyButton(
-                onTap: () => signUserIn(context),
-                text: 'Sign In',
-                backgroundColor: Colors.blue,
-                textColor: Colors.white,
-                padd: const EdgeInsets.all(25),
-                marg: const EdgeInsets.symmetric(horizontal: 25),
-              ),
-
-              const SizedBox(height: 25),
-
-              Divider(
-                thickness: 0.5,
-                color: Colors.grey[400],
-              ),
-
-              const SizedBox(height: 25),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('Not A Member'),
-                  const SizedBox(width: 4),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pushNamed(context, '/signup');
-                    },
-                    child: Text(
-                      'Register Here',
-                      style: TextStyle(
-                        color: Colors.blue,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
