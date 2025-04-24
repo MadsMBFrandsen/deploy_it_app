@@ -8,6 +8,7 @@ import 'package:deploy_it_app/components/my_textfield.dart';
 import 'package:deploy_it_app/components/my_button.dart';
 import 'package:deploy_it_app/components/api_calls.dart';
 
+
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 FlutterLocalNotificationsPlugin();
 
@@ -54,6 +55,7 @@ class _ProfilePageState extends State<ProfilePage>
     await flutterLocalNotificationsPlugin.initialize(initializationSettings);
   }
 
+
   Future<void> _showTestNotification() async {
     const AndroidNotificationDetails androidDetails =
     AndroidNotificationDetails(
@@ -73,6 +75,7 @@ class _ProfilePageState extends State<ProfilePage>
       notificationDetails,
     );
   }
+
 
   Future<void> requestNotificationPermission() async {
     if (await Permission.notification.isDenied ||
@@ -185,6 +188,8 @@ class _ProfilePageState extends State<ProfilePage>
       await prefs.setInt('cpu_threshold', cpuThreshold);
       await prefs.setInt('ram_threshold', ramThreshold);
       await prefs.setInt('storage_threshold', storageThreshold);
+
+
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Notification Settings Saved!')),
@@ -357,7 +362,9 @@ class _ProfilePageState extends State<ProfilePage>
               storageThreshold = val ?? 90;
             });
           }),
+
           const SizedBox(height: 30),
+
           MyButton(
             onTap: saving ? null : saveNotificationSettings,
             text: saving ? 'Saving...' : 'Save Notification Settings',
@@ -366,7 +373,10 @@ class _ProfilePageState extends State<ProfilePage>
             padd: const EdgeInsets.all(25),
             marg: const EdgeInsets.symmetric(horizontal: 8),
           ),
+
           const SizedBox(height: 20),
+
+          /*
           MyButton(
             onTap: _showTestNotification,
             text: 'Send Test Notification',
@@ -375,6 +385,7 @@ class _ProfilePageState extends State<ProfilePage>
             padd: const EdgeInsets.all(20),
             marg: const EdgeInsets.symmetric(horizontal: 8),
           ),
+          */
         ],
       ),
     );

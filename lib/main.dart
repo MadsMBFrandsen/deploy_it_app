@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'package:deploy_it_app/components/theme_controller.dart';
 import 'package:deploy_it_app/pages/admin_page.dart';
 import 'package:deploy_it_app/pages/deployment_page.dart';
 import 'package:deploy_it_app/pages/login_page.dart';
@@ -9,15 +8,22 @@ import 'package:deploy_it_app/pages/sign_up_page.dart';
 import 'package:deploy_it_app/pages/profile_page.dart';
 import 'package:deploy_it_app/pages/pay_status.dart';
 
-import 'components/SplashScreen.dart';
+import 'package:deploy_it_app/components/theme_controller.dart';
+import 'package:deploy_it_app/components/SplashScreen.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   runApp(const Deploy_It());
 }
 
+
+
 class Deploy_It extends StatelessWidget {
   const Deploy_It({super.key});
+
+
 
   @override
   Widget build(BuildContext context) {
