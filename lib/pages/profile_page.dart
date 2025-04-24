@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'package:deploy_it_app/components/navigation_bar.dart';
 import 'package:deploy_it_app/components/my_textfield.dart';
 import 'package:deploy_it_app/components/my_button.dart';
 import 'package:deploy_it_app/components/api_calls.dart';
 
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+FlutterLocalNotificationsPlugin();
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -14,7 +18,8 @@ class ProfilePage extends StatefulWidget {
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin {
+class _ProfilePageState extends State<ProfilePage>
+    with TickerProviderStateMixin {
   final usernameController = TextEditingController();
   final emailController = TextEditingController();
   final oldPasswordController = TextEditingController();
@@ -31,15 +36,50 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
 
   late TabController _tabController;
 
-
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     loadUserData();
+    _initNotifications();
   }
 
+  Future<void> _initNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+    AndroidInitializationSettings('@mipmap/ic_launcher');
 
+    const InitializationSettings initializationSettings =
+    InitializationSettings(android: initializationSettingsAndroid);
+
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  }
+
+  Future<void> _showTestNotification() async {
+    const AndroidNotificationDetails androidDetails =
+    AndroidNotificationDetails(
+      'test_channel',
+      'Test Notifikationer',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+
+    const NotificationDetails notificationDetails =
+    NotificationDetails(android: androidDetails);
+
+    await flutterLocalNotificationsPlugin.show(
+      0,
+      'Test Notifikation',
+      'Det her virker!',
+      notificationDetails,
+    );
+  }
+
+  Future<void> requestNotificationPermission() async {
+    if (await Permission.notification.isDenied ||
+        await Permission.notification.isRestricted) {
+      await Permission.notification.request();
+    }
+  }
 
   void loadUserData() async {
     try {
@@ -57,7 +97,8 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
       setState(() {
         usernameController.text = username ?? '';
         emailController.text = email ?? '';
-        notificationInterval = validIntervals.contains(savedInterval) ? savedInterval! : 30;
+        notificationInterval =
+        validIntervals.contains(savedInterval) ? savedInterval! : 30;
         notificationsEnabled = savedEnabled ?? true;
         cpuThreshold = savedCpuThreshold ?? 80;
         ramThreshold = savedRamThreshold ?? 80;
@@ -85,18 +126,21 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
       return;
     }
 
-    bool wantsToChangePassword = oldPassword.isNotEmpty || newPassword.isNotEmpty;
+    bool wantsToChangePassword =
+        oldPassword.isNotEmpty || newPassword.isNotEmpty;
 
     if (wantsToChangePassword) {
       if (oldPassword.isEmpty || newPassword.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please fill both old and new password fields')),
+          const SnackBar(
+              content: Text('Please fill both old and new password fields')),
         );
         return;
       }
       if (newPassword.length < 6) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('New password must be at least 6 characters')),
+          const SnackBar(
+              content: Text('New password must be at least 6 characters')),
         );
         return;
       }
@@ -141,8 +185,6 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
       await prefs.setInt('cpu_threshold', cpuThreshold);
       await prefs.setInt('ram_threshold', ramThreshold);
       await prefs.setInt('storage_threshold', storageThreshold);
-
-
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Notification Settings Saved!')),
@@ -245,13 +287,32 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Receive Notifications', style: TextStyle(fontSize: 18)),
+              const Text('Receive Notifications',
+                  style: TextStyle(fontSize: 18)),
               Switch(
                 value: notificationsEnabled,
-                onChanged: (bool value) {
+                onChanged: (bool value) async {
                   setState(() {
                     notificationsEnabled = value;
                   });
+
+                  if (value) {
+                    if (!(await Permission.notification.isGranted)) {
+                      await requestNotificationPermission();
+                    }
+                    await _showTestNotification();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Notifications Enabled')),
+                      );
+                    }
+                  } else {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Notifications Disabled')),
+                      );
+                    }
+                  }
                 },
               ),
             ],
@@ -260,7 +321,8 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Notify Every (minutes)', style: TextStyle(fontSize: 18)),
+              const Text('Notify Every (minutes)',
+                  style: TextStyle(fontSize: 18)),
               DropdownButton<int>(
                 value: notificationInterval,
                 items: [15, 30, 60].map((int value) {
@@ -304,12 +366,22 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
             padd: const EdgeInsets.all(25),
             marg: const EdgeInsets.symmetric(horizontal: 8),
           ),
+          const SizedBox(height: 20),
+          MyButton(
+            onTap: _showTestNotification,
+            text: 'Send Test Notification',
+            backgroundColor: Colors.deepPurple,
+            textColor: Colors.white,
+            padd: const EdgeInsets.all(20),
+            marg: const EdgeInsets.symmetric(horizontal: 8),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildLabeledField(String label, TextEditingController controller, bool isPassword) {
+  Widget _buildLabeledField(
+      String label, TextEditingController controller, bool isPassword) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -325,7 +397,8 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     );
   }
 
-  Widget _buildThresholdRow(String label, int currentValue, Function(int?) onChanged) {
+  Widget _buildThresholdRow(
+      String label, int currentValue, Function(int?) onChanged) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
