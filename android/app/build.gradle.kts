@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.deploy_it_app"
-    compileSdk = 34  // Android 14+ (can bump to 35 for Android 15 later)
+    compileSdk = 35  // Android 14+ (can bump to 35 for Android 15 later)
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -22,7 +22,7 @@ android {
     defaultConfig {
         applicationId = "com.example.deploy_it_app"
         minSdk = 21
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
     }
