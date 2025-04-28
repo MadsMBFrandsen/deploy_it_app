@@ -102,7 +102,7 @@ class _ProfilePageState extends State<ProfilePage>
         emailController.text = email ?? '';
         notificationInterval =
         validIntervals.contains(savedInterval) ? savedInterval! : 30;
-        notificationsEnabled = savedEnabled ?? true;
+        notificationsEnabled = savedEnabled ?? false;
         cpuThreshold = savedCpuThreshold ?? 80;
         ramThreshold = savedRamThreshold ?? 80;
         storageThreshold = savedStorageThreshold ?? 90;

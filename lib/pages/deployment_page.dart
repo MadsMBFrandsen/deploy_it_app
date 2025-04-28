@@ -12,12 +12,13 @@ Map<String, dynamic> mapConfig(Map<String, dynamic> config) {
   return {
     ...config,
     'hardware': {
-      'cores': config['cores'],
-      'memory': config['memory'],
-      'disksize': config['disk_space'],
+      'cores': config['hardware']['cores'],
+      'memory': config['hardware']['memory'],
+      'disksize': config['hardware']['disksize'],
     },
   };
 }
+
 
 class DeploymentPage extends StatelessWidget {
   const DeploymentPage({super.key});

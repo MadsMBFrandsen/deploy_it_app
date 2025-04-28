@@ -2,12 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:math';
-import 'package:shared_preferences/shared_preferences.dart';
+//import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   static const String baseUrl = "https://fake-api.local/api/vms";
 
   // --------------------------- Auth Headers -------------------------------
+  /*
   static Future<Map<String, String>> _getAuthHeaders() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token') ?? '';
@@ -16,7 +17,7 @@ class ApiService {
       'Authorization': 'Bearer $token',
     };
   }
-
+*/
   // --------------------------- VM Configs -------------------------------
   static Future<List<Map<String, dynamic>>> vmconfig() async {
     await Future.delayed(Duration(milliseconds: 500));
@@ -44,7 +45,7 @@ class ApiService {
 
   static Future<http.Response> createVM(Map<String, dynamic> vmData) async {
 
-    final headers = await _getAuthHeaders();
+    //final headers = await _getAuthHeaders();
     await Future.delayed(Duration(seconds: 1));
 
     return http.Response(jsonEncode({"message": "VM created successfully"}), 201);
@@ -164,7 +165,7 @@ class ApiService {
     "role": "admin",
   };
 
-  static const String _mockToken = "mocked-token-1234";
+  //static const String _mockToken = "mocked-token-1234";
 
   static Future<Map<String, dynamic>> getUserProfile() async {
     await Future.delayed(Duration(milliseconds: 500));
