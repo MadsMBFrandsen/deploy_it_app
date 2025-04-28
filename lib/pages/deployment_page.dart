@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // <-- Added
 import '../components/navigation_bar.dart';
-import '../components/api_calls.dart';
+import '../components/api_calls_temp.dart';
+import '../components/vm_provider.dart';
 import '../pages/status_page.dart';
 
-// Helper function to map configuration
+
+// Helper function
 Map<String, dynamic> mapConfig(Map<String, dynamic> config) {
   return {
     ...config,
@@ -64,13 +67,10 @@ class _CreateTabState extends State<CreateTab> {
   final _formKey = GlobalKey<FormState>();
   final nameController = TextEditingController();
   final descController = TextEditingController();
-
   List<Map<String, dynamic>> vmConfigs = [];
   Map<String, dynamic>? selectedConfig;
-
   List<Map<String, dynamic>> availablePackages = [];
   List<String> selectedPackageIds = [];
-
   bool loadingConfigs = true;
   bool loadingPackages = true;
 
@@ -90,18 +90,8 @@ class _CreateTabState extends State<CreateTab> {
     });
   }
 
-  //void loadPackages() async {
-   // final packages = await ApiService.fetchAllVMConfigPackages();
-   // setState(() {
-    //  availablePackages = packages;
-   //   loadingPackages = false;
-   // });
-  //}
-
   void loadPackages() async {
-    // TEMPORARY MOCK DATA
-    await Future.delayed(const Duration(milliseconds: 500)); // simulate network delay
-
+    await Future.delayed(const Duration(milliseconds: 500));
     setState(() {
       availablePackages = [
         {'id': 'fake-uuid-nodejs', 'name': 'Node.js'},
@@ -112,10 +102,11 @@ class _CreateTabState extends State<CreateTab> {
     });
   }
 
-
   @override
   Widget build(BuildContext context) {
-    if (loadingConfigs || loadingPackages) return const Center(child: CircularProgressIndicator());
+    if (loadingConfigs || loadingPackages) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -158,14 +149,14 @@ class _CreateTabState extends State<CreateTab> {
             const Text("Select Packages"),
             ...availablePackages.map((pkg) {
               return CheckboxListTile(
-                title: Text(pkg['name'] as String),
-                value: selectedPackageIds.contains(pkg['id'] as String),
+                title: Text(pkg['name']),
+                value: selectedPackageIds.contains(pkg['id']),
                 onChanged: (val) {
                   setState(() {
                     if (val == true) {
-                      selectedPackageIds.add(pkg['id'] as String);
+                      selectedPackageIds.add(pkg['id']);
                     } else {
-                      selectedPackageIds.remove(pkg['id'] as String);
+                      selectedPackageIds.remove(pkg['id']);
                     }
                   });
                 },
@@ -178,7 +169,7 @@ class _CreateTabState extends State<CreateTab> {
                     showDialog(
                       context: context,
                       barrierDismissible: false,
-                      builder: (context) => const Center(child: CircularProgressIndicator()),
+                      builder: (_) => const Center(child: CircularProgressIndicator()),
                     );
 
                     final vmData = {
@@ -192,12 +183,11 @@ class _CreateTabState extends State<CreateTab> {
                         "cores": selectedConfig!['hardware']['cores'],
                         "memory": selectedConfig!['hardware']['memory'],
                         "disk_space": selectedConfig!['hardware']['disksize'],
-                        "proxmox_configuration_id": selectedConfig!['proxmox_configuration_id'] is int
-                            ? selectedConfig!['proxmox_configuration_id']
-                            : int.parse(selectedConfig!['proxmox_configuration_id'].toString()),
+                        "proxmox_configuration_id": int.tryParse(selectedConfig!['proxmox_configuration_id'].toString()) ?? 0, // ✅ fixed
                       },
                       "selected_packages": selectedPackageIds,
                     };
+
 
                     final res = await ApiService.createVM(vmData);
 
@@ -205,15 +195,17 @@ class _CreateTabState extends State<CreateTab> {
 
                     final resData = jsonDecode(res.body);
 
-                    if (res.statusCode == 200) {
-                      final newVmId = resData['id'];
+                    if (res.statusCode == 200 || res.statusCode == 201) {
+                      final newVmId = resData['id'] ?? DateTime.now().millisecondsSinceEpoch.toString();
+
+                      Provider.of<VMProvider>(context, listen: false).addVM({
+                        'id': newVmId,
+                        'name': nameController.text,
+                      });
 
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text(resData['message'])),
                       );
-
-                      await Future.delayed(const Duration(milliseconds: 500));
-                      if (!mounted) return;
 
                       Navigator.pushReplacement(
                         context,
@@ -233,9 +225,7 @@ class _CreateTabState extends State<CreateTab> {
                       );
                     }
                   } finally {
-                    if (mounted) {
-                      Navigator.of(context, rootNavigator: true).pop();
-                    }
+                    if (mounted) Navigator.of(context, rootNavigator: true).pop();
                   }
                 }
               },
@@ -247,7 +237,6 @@ class _CreateTabState extends State<CreateTab> {
     );
   }
 }
-
 
 // UPDATE TAB
 class UpdateTab extends StatefulWidget {
@@ -261,35 +250,19 @@ class _UpdateTabState extends State<UpdateTab> {
   final _formKey = GlobalKey<FormState>();
   final nameController = TextEditingController();
   final descController = TextEditingController();
-  List<Map<String, dynamic>> configs = [];
   Map<String, dynamic>? selectedConfig;
   bool loading = true;
 
   @override
   void initState() {
     super.initState();
-    loadConfigs();
-  }
-
-  void loadConfigs() async {
-    final newConfigs = await ApiService.fetchAllVMConfigs();
-    setState(() {
-      configs = newConfigs.map(mapConfig).toList();
-      loading = false;
-    });
-  }
-
-  void onSelect(String? id) {
-    final config = configs.firstWhere((c) => c['id'] == id);
-    setState(() {
-      selectedConfig = config;
-      nameController.text = config['name'];
-      descController.text = config['desc'];
-    });
+    loading = false;
   }
 
   @override
   Widget build(BuildContext context) {
+    final configs = context.watch<VMProvider>().vms;
+
     if (loading) return const Center(child: CircularProgressIndicator());
 
     return Padding(
@@ -303,13 +276,21 @@ class _UpdateTabState extends State<UpdateTab> {
               decoration: const InputDecoration(labelText: "Select VM to Update"),
               items: configs.map<DropdownMenuItem<String>>((c) {
                 return DropdownMenuItem<String>(
-                  value: c['id'] as String,
+                  value: c['id'],
                   child: Text(c['name']),
                 );
               }).toList(),
-              onChanged: onSelect,
+              onChanged: (id) {
+                final config = configs.firstWhere((c) => c['id'] == id);
+                setState(() {
+                  selectedConfig = config;
+                  nameController.text = config['name'];
+                  descController.text = config['desc'] ?? '';
+                });
+              },
             ),
             if (selectedConfig != null) ...[
+              const SizedBox(height: 12),
               TextFormField(
                 controller: nameController,
                 decoration: const InputDecoration(labelText: "VM Name"),
@@ -321,10 +302,6 @@ class _UpdateTabState extends State<UpdateTab> {
                 validator: (val) => val == null || val.isEmpty ? "Enter description" : null,
               ),
               const SizedBox(height: 16),
-              Text("Cores: ${selectedConfig!['hardware']['cores']}"),
-              Text("RAM: ${selectedConfig!['hardware']['memory']} GB"),
-              Text("Storage: ${selectedConfig!['hardware']['disksize']} GB"),
-              const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () async {
                   if (_formKey.currentState!.validate()) {
@@ -332,34 +309,35 @@ class _UpdateTabState extends State<UpdateTab> {
                       showDialog(
                         context: context,
                         barrierDismissible: false,
-                        builder: (context) => const Center(child: CircularProgressIndicator()),
+                        builder: (_) => const Center(child: CircularProgressIndicator()),
                       );
 
                       final res = await ApiService.updateVM(selectedConfig!['id'], {
                         "name": nameController.text,
                         "desc": descController.text,
-                        "hardware": selectedConfig!['hardware'],
                       });
 
                       if (!mounted) return;
-
                       final resData = jsonDecode(res.body);
 
                       if (res.statusCode == 200) {
+                        Provider.of<VMProvider>(context, listen: false).updateVM(
+                          selectedConfig!['id'],
+                          {
+                            'id': selectedConfig!['id'],
+                            'name': nameController.text,
+                          },
+                        );
+
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text(resData['message'])),
                         );
 
-                        loadConfigs();
                         setState(() {
                           selectedConfig = null;
                           nameController.clear();
                           descController.clear();
                         });
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Failed to update VM')),
-                        );
                       }
                     } catch (e) {
                       if (mounted) {
@@ -368,9 +346,7 @@ class _UpdateTabState extends State<UpdateTab> {
                         );
                       }
                     } finally {
-                      if (mounted) {
-                        Navigator.of(context, rootNavigator: true).pop();
-                      }
+                      if (mounted) Navigator.of(context, rootNavigator: true).pop();
                     }
                   }
                 },
@@ -393,84 +369,11 @@ class DeleteTab extends StatefulWidget {
 }
 
 class _DeleteTabState extends State<DeleteTab> {
-  List<Map<String, dynamic>> configs = [];
   Map<String, dynamic>? selectedConfig;
-  bool loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    loadConfigs();
-  }
-
-  void loadConfigs() async {
-    final newConfigs = await ApiService.fetchAllVMConfigs();
-    setState(() {
-      configs = newConfigs.map(mapConfig).toList();
-      loading = false;
-    });
-  }
-
-  void confirmDelete() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Delete VM"),
-        content: const Text("Are you sure you want to delete this VM?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Delete")),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      try {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const Center(child: CircularProgressIndicator()),
-        );
-
-        final res = await ApiService.deleteVM(selectedConfig!['id']);
-
-        if (!mounted) return;
-
-        final resData = jsonDecode(res.body);
-
-        if (res.statusCode == 200) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(resData['message'])),
-          );
-
-          setState(() {
-            selectedConfig = null;
-            loading = true;
-          });
-
-          loadConfigs();
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to delete VM')),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: ${e.toString()}')),
-          );
-        }
-      } finally {
-        if (mounted) {
-          Navigator.of(context, rootNavigator: true).pop();
-        }
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return const Center(child: CircularProgressIndicator());
+    final configs = context.watch<VMProvider>().vms;
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -481,7 +384,7 @@ class _DeleteTabState extends State<DeleteTab> {
             decoration: const InputDecoration(labelText: "Select VM to Delete"),
             items: configs.map<DropdownMenuItem<String>>((c) {
               return DropdownMenuItem<String>(
-                value: c['id'] as String,
+                value: c['id'],
                 child: Text(c['name']),
               );
             }).toList(),
@@ -493,14 +396,51 @@ class _DeleteTabState extends State<DeleteTab> {
           ),
           if (selectedConfig != null) ...[
             const SizedBox(height: 12),
-            Text("Name: ${selectedConfig!['name']}"),
-            Text("Desc: ${selectedConfig!['desc']}"),
-            Text("Cores: ${selectedConfig!['hardware']['cores']}"),
-            Text("RAM: ${selectedConfig!['hardware']['memory']} GB"),
-            Text("Storage: ${selectedConfig!['hardware']['disksize']} GB"),
-            const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: confirmDelete,
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text("Delete VM"),
+                    content: const Text("Are you sure you want to delete this VM?"),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+                      ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Delete")),
+                    ],
+                  ),
+                );
+
+                if (confirm == true) {
+                  try {
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (_) => const Center(child: CircularProgressIndicator()),
+                    );
+
+                    final res = await ApiService.deleteVM(selectedConfig!['id']);
+                    final resData = jsonDecode(res.body);
+
+                    if (res.statusCode == 200) {
+                      Provider.of<VMProvider>(context, listen: false).deleteVM(selectedConfig!['id']);
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(resData['message'])),
+                      );
+
+                      setState(() {
+                        selectedConfig = null;
+                      });
+                    }
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: ${e.toString()}')),
+                    );
+                  } finally {
+                    if (mounted) Navigator.of(context, rootNavigator: true).pop();
+                  }
+                }
+              },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               child: const Text("Delete VM"),
             ),

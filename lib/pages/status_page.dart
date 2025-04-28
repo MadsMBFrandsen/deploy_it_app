@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:deploy_it_app/components/navigation_bar.dart';
-import 'package:deploy_it_app/components/api_calls_temp.dart';
+import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../components/navigation_bar.dart';
 import '../components/circle_usage.dart';
+import '../components/api_calls_temp.dart';
+import '../components/vm_provider.dart';
 
 class StatusPage extends StatefulWidget {
-  final String? selectedVmId; // Allow selected VM id
+  final String? selectedVmId;
 
   const StatusPage({super.key, this.selectedVmId});
 
@@ -14,7 +16,6 @@ class StatusPage extends StatefulWidget {
 }
 
 class _StatusPageState extends State<StatusPage> {
-  List<Map<String, dynamic>> vmList = [];
   String? selectedVmId;
   String? selectedVmName;
 
@@ -29,71 +30,47 @@ class _StatusPageState extends State<StatusPage> {
   @override
   void initState() {
     super.initState();
-    fetchAllVMs();
-  }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final vmList = Provider.of<VMProvider>(context, listen: false).vms;
 
-  Future<void> fetchAllVMs() async {
-    try {
-      final vms = await ApiService.getAllVMs();
-      if (vms.isNotEmpty) {
+      if (vmList.isNotEmpty) {
         final defaultVm = widget.selectedVmId != null
-            ? vms.firstWhere(
-              (vm) => vm['id'] == widget.selectedVmId,
-          orElse: () => vms.first,
-        )
-            : vms.first;
+            ? vmList.firstWhere((vm) => vm['id'] == widget.selectedVmId, orElse: () => vmList.first)
+            : vmList.first;
 
         setState(() {
-          vmList = vms;
           selectedVmId = defaultVm['id'];
           selectedVmName = defaultVm['name'];
           loading = true;
         });
 
-        await fetchVMStatus(defaultVm['id']);
+        fetchVMStatus(defaultVm['id']);
       } else {
-        // No VMs found
         setState(() {
-          vmList = [];
           selectedVmId = null;
           selectedVmName = null;
-          cpuUsage = 0;
-          ramUsage = 0;
-          storageUsage = 0;
-          chartData = [];
-          logs = [];
           loading = false;
         });
       }
-    } catch (e) {
-      setState(() => loading = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to fetch VMs')),
-      );
-    }
+    });
   }
 
   Future<void> fetchVMStatus(String vmId) async {
     try {
       final status = await ApiService.getVMStatus(vmId);
 
-
       setState(() {
         cpuUsage = _parsePercentage(status['cpu_usage']);
         ramUsage = _parsePercentage(status['ram_usage']);
         storageUsage = _parsePercentage(status['storage_usage']);
-        chartData = (status['chart_data'] as List)
-            .map((e) => (e as num).toDouble())
-            .toList();
+        chartData = (status['chart_data'] as List).map((e) => (e as num).toDouble()).toList();
         logs = List<String>.from(status['logs']);
         loading = false;
       });
     } catch (e) {
       setState(() => loading = false);
-
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load VM status.')),
+        const SnackBar(content: Text('Failed to load VM status.')),
       );
     }
   }
@@ -104,6 +81,8 @@ class _StatusPageState extends State<StatusPage> {
 
   @override
   Widget build(BuildContext context) {
+    final vmList = context.watch<VMProvider>().vms;
+
     return NavigationBarCustom(
       body: SafeArea(
         child: loading
@@ -125,14 +104,14 @@ class _StatusPageState extends State<StatusPage> {
                 const SizedBox(height: 30),
                 const Text('Status', style: TextStyle(fontSize: 24)),
                 const SizedBox(height: 20),
-                _buildVmDropdown(),
+                _buildVmDropdown(vmList),
                 const SizedBox(height: 16),
                 if (selectedVmName != null) _buildSelectedVmText(),
                 _buildUsageIndicators(),
                 const SizedBox(height: 30),
                 _buildUsageChart(),
                 const SizedBox(height: 30),
-                _buildLogsSection(context),
+                _buildLogsSection(),
               ],
             ),
           ),
@@ -141,7 +120,7 @@ class _StatusPageState extends State<StatusPage> {
     );
   }
 
-  Widget _buildVmDropdown() {
+  Widget _buildVmDropdown(List<Map<String, dynamic>> vmList) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -149,7 +128,6 @@ class _StatusPageState extends State<StatusPage> {
         const SizedBox(width: 8),
         DropdownButton<String>(
           value: selectedVmId,
-          isExpanded: false,
           onChanged: (String? newId) {
             final vm = vmList.firstWhere((vm) => vm['id'] == newId);
             setState(() {
@@ -233,8 +211,7 @@ class _StatusPageState extends State<StatusPage> {
               sideTitles: SideTitles(
                 showTitles: true,
                 interval: 0.25,
-                getTitlesWidget: (value, meta) =>
-                    Text('${(value * 100).toInt()}%'),
+                getTitlesWidget: (value, meta) => Text('${(value * 100).toInt()}%'),
               ),
             ),
           ),
@@ -245,7 +222,7 @@ class _StatusPageState extends State<StatusPage> {
     );
   }
 
-  Widget _buildLogsSection(BuildContext context) {
+  Widget _buildLogsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -269,7 +246,7 @@ class _StatusPageState extends State<StatusPage> {
               title: Text(log),
               subtitle: Text(
                 'Timestamp: ${DateTime.now()}',
-                style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ),
           ),
