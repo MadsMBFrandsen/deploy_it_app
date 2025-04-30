@@ -7,7 +7,6 @@ import '../components/vm_provider.dart';
 import '../pages/status_page.dart';
 
 
-// Helper function
 Map<String, dynamic> mapConfig(Map<String, dynamic> config) {
   return {
     ...config,

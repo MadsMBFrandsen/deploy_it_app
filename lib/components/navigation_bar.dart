@@ -58,7 +58,7 @@ class _NavigationBarState extends State<NavigationBarCustom> {
 
     setState(() {
       isAdmin = role == 'admin';
-      isAPayingUser = role == 'kunne';
+      isAPayingUser = role == 'user';
     });
   }
 

@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl = "https://staging.deploy-it.dk/api";
+  static const String baseUrl = "https://deploy-it.dk/api";
 
   // Helper method to get token
   static Future<String> _getToken() async {

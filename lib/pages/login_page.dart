@@ -50,6 +50,11 @@ class _LoginPageState extends State<LoginPage> {
     passwordController.text = "KrBFrF6HBP8z8VBDmd9y";
   }
 
+  void fillUserCredentials() {
+    emailController.text = "user@example.org";
+    passwordController.text = "NvaFkALJhjFvnYdkse65";
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -65,11 +70,14 @@ class _LoginPageState extends State<LoginPage> {
                 child: const Icon(Icons.lock, size: 100),
               ),
               const SizedBox(height: 25),
-              const Text('Login',
-                  style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold)),
+              GestureDetector(
+                onLongPress: fillUserCredentials,
+                child: const Text('Login',
+                    style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 30,
+                        fontWeight: FontWeight.bold)),
+              ),
               const SizedBox(height: 25),
               Text('Welcome',
                   style: TextStyle(
